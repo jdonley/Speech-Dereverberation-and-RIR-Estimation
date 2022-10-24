@@ -8,15 +8,16 @@ import soundfile as sf
 import glob
 
 class MitIrSurveyDataset(Dataset):
-    def __init__(self, type="train", split_train_val_test=[80,10,10], device='cuda'):
+    def __init__(self, type="train", split_train_val_test_p=[80,10,10], device='cuda'):
         self.root_dir = Path(getConfig()['datasets_path'],'MIT_IR_Survey')
         self.max_data_len = 270 # This is supposed to be 271 but there is an IR missing in the dataset
 
         self.samplerate = 32000
 
         self.type = type
-        self.split_train_val_test = np.int32(np.round( np.array(split_train_val_test)/100 * self.max_data_len ))
-        self.split_edge = np.cumsum(np.hstack((0,self.split_train_val_test)))
+        self.split_train_val_test_p = split_train_val_test_p
+        self.split_train_val_test = np.int32(np.round( np.array(self.split_train_val_test_p)/100 * self.max_data_len ))
+        self.split_edge = np.cumsum(np.hstack((0,self.split_train_val_test_p)))
         np.random.seed(getConfig()['random_seed'])
         self.idx_rand = np.random.permutation(range(self.max_data_len))
 

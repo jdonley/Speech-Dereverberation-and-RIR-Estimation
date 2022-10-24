@@ -1,6 +1,5 @@
 from models.lightning_model import LitAutoEncoder
-from datasets.speech_data import LibriSpeechDataloader
-from datasets.rir_data import MitIrSurveyDataloader
+from datasets.reverb_speech_data import DareDataloader
 import pytorch_lightning as pl
 
 # ===========================================================
@@ -8,12 +7,9 @@ import pytorch_lightning as pl
 autoencoder = LitAutoEncoder()
 
 # Data Loaders
-train_loader = LibriSpeechDataloader("train")
-val_loader   = LibriSpeechDataloader("val")
-test_loader  = LibriSpeechDataloader("test")
-train_loader = MitIrSurveyDataloader("train")
-val_loader   = MitIrSurveyDataloader("val")
-test_loader  = MitIrSurveyDataloader("test")
+train_loader = DareDataloader("train")
+val_loader   = DareDataloader("val")
+test_loader  = DareDataloader("test")
 
 # PyTorch Lightning Train
 trainer = pl.Trainer(limit_train_batches=100, max_epochs=1)
