@@ -17,5 +17,5 @@ check the contents of `$CUDA_PATH/include/cudnn_version.h` for the CuDNN version
 ```
 conda install pytorch torchvision torchaudio cudatoolkit=11.6 -c pytorch -c conda-forge
 conda install pytorch-lightning -c conda-forge
-conda install numpy pyyaml matplotlib
+conda install numpy pyyaml soundfile matplotlib
 ```
