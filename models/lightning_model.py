@@ -6,7 +6,7 @@ import pytorch_lightning as pl
 
 
 # define the LightningModule
-class LitModel(pl.LightningModule):
+class LitAutoEncoder(pl.LightningModule):
     def __init__(self):
         super().__init__()
 
