@@ -19,7 +19,6 @@ class MitIrSurveyDataset(Dataset):
         
         if download and not os.path.isdir(str(self.root_dir)): # If the path doesn't exist, download the dataset if set to true
             self.download_mit_ir_survey(self.root_dir)
-            
 
         self.max_data_len = 270 # This is supposed to be 271 but there is an IR missing in the dataset
 

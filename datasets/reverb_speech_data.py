@@ -8,6 +8,7 @@ from utils import getConfig
 import soundfile as sf
 from datasets.speech_data import LibriSpeechDataset
 from datasets.rir_data import MitIrSurveyDataset
+import matplotlib.pyplot as plt
 
 class DareDataset(Dataset):
     def __init__(self, type="train", split_train_val_test_p=[80,10,10], device='cuda'):
@@ -16,7 +17,7 @@ class DareDataset(Dataset):
         self.split_train_val_test_p = split_train_val_test_p
         self.device = device
         
-        self.rir_dataset = MitIrSurveyDataset(type=self.type)
+        self.rir_dataset = MitIrSurveyDataset(type=self.type, device="cpu")
         self.speech_dataset = LibriSpeechDataset(type=self.type)
 
 
@@ -28,8 +29,10 @@ class DareDataset(Dataset):
         idx_speech = idx % len(self.speech_dataset)
         idx_rir    = idx // len(self.speech_dataset)
 
-        speech = self.speech_dataset[idx_speech]
-        rir = self.rir_dataset[idx_rir]
+        speech,fs_speech = self.speech_dataset[idx_speech][0:2]
+        speech = speech.flatten()
+        rir = self.rir_dataset[idx_rir].flatten()
+        rir = rir[~rir.isnan()]
 
         reverb_speech = signal.fftconvolve(speech, rir, mode='full', axes=None)
         
