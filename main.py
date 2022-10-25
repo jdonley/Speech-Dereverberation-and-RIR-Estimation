@@ -12,7 +12,7 @@ val_loader   = DareDataloader("val")
 test_loader  = DareDataloader("test")
 
 # PyTorch Lightning Train
-trainer = pl.Trainer(limit_train_batches=100, max_epochs=1)
+trainer = pl.Trainer(limit_train_batches=100, max_epochs=10, accelerator="gpu", devices=1, strategy="dp")
 trainer.fit(model=autoencoder, train_dataloaders=train_loader, val_dataloaders=val_loader)
 
 # ===========================================================

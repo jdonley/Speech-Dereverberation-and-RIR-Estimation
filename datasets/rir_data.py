@@ -43,7 +43,7 @@ class MitIrSurveyDataset(Dataset):
         self.device = device
         
         max_rir_len = 63971 # max num samples
-        self.irs = np.empty((len(self.split), max_rir_len)) # VGGish features are 10 x 128
+        self.irs = np.empty((len(self.split), max_rir_len))
         self.irs[:] = np.nan
         self.irs = t.tensor(self.irs, dtype=t.float).to(self.device)
 
