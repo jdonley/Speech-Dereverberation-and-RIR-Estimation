@@ -19,3 +19,8 @@ conda install pytorch-lightning -c conda-forge
 conda install numpy pyyaml matplotlib
 python -m pip install soundfile
 ```
+
+Check that the GPU can be used by PyTorch:
+```
+python -c "import torch; print(torch.cuda.is_available())"
+```
