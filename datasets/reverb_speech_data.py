@@ -1,14 +1,10 @@
-import torch as t
 from torch.utils.data import Dataset, DataLoader
-from pathlib import Path
 from utils import *
-import numpy as np
 from scipy import signal
 from utils import getConfig
-import soundfile as sf
 from datasets.speech_data import LibriSpeechDataset
 from datasets.rir_data import MitIrSurveyDataset
-import matplotlib.pyplot as plt
+import librosa
 
 class DareDataset(Dataset):
     def __init__(self, type="train", split_train_val_test_p=[80,10,10], device='cuda'):
@@ -33,6 +29,9 @@ class DareDataset(Dataset):
         speech = speech.flatten()
         rir = self.rir_dataset[idx_rir].flatten()
         rir = rir[~rir.isnan()]
+        fs_rir = self.rir_dataset.samplerate
+
+        rir = librosa.resample(rir, orig_sr=fs_rir, target_sr=fs_speech)
 
         reverb_speech = signal.fftconvolve(speech, rir, mode='full', axes=None)
         
