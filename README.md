@@ -12,10 +12,10 @@ can be substituted for any desired virtual environment name.
 [cuda 11.6](https://developer.nvidia.com/cuda-11-6-0-download-archive) is installed, along with a
 suitable [cuDNN](https://developer.nvidia.com/rdp/cudnn-archive) package. See the
 [available Conda PyTorch install files](https://anaconda.org/pytorch/pytorch/files) for compatible
-CUDA Toolkit - cuDNN combinations. Use `nvcc --version` to determine the CUDA Toolkit version and
-check the contents of `$CUDA_PATH/include/cudnn_version.h` for the CuDNN version.
+CUDA Toolkit - cuDNN combinations. Use `nvcc --version` to determine the CUDA Toolkit version.
 ```
 conda install pytorch torchvision torchaudio cudatoolkit=11.6 -c pytorch -c conda-forge
 conda install pytorch-lightning -c conda-forge
-conda install numpy pyyaml soundfile matplotlib
+conda install numpy pyyaml matplotlib
+python -m pip install soundfile
 ```
