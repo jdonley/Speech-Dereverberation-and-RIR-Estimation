@@ -20,15 +20,16 @@ class DareDataset(Dataset):
 
         self.samplerate = 16000
         self.reverb_speech_duration = 5 * self.samplerate
+        self.num_speech_samples = 60
 
         self.reverb_speech = np.empty((
-            60 * len(self.rir_dataset), 
+            self.num_speech_samples * len(self.rir_dataset), 
             self.reverb_speech_duration))
         self.reverb_speech[:] = np.nan
         self.reverb_speech = t.tensor(self.reverb_speech, dtype=t.float).to(self.device)
 
         self.speech = np.empty((
-            60 * len(self.rir_dataset), 
+            self.num_speech_samples * len(self.rir_dataset), 
             self.reverb_speech_duration))
         self.speech[:] = np.nan
         self.speech = t.tensor(self.speech, dtype=t.float).to(self.device)
@@ -74,5 +75,5 @@ class DareDataset(Dataset):
         
         return self.reverb_speech[idx,:], self.speech[idx,:]
 
-def DareDataloader(type="train", batch_size=128):
-    return DataLoader(DareDataset(type), batch_size=batch_size)
+def DareDataloader(type="train"):
+    return DataLoader(DareDataset(type), batch_size=getConfig()['batch_size'])

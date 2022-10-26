@@ -1,6 +1,7 @@
 from models.lightning_model import LitAutoEncoder
 from datasets.reverb_speech_data import DareDataloader
 import pytorch_lightning as pl
+from utils import getConfig
 import matplotlib.pyplot as plt
 
 # ===========================================================
@@ -8,20 +9,20 @@ import matplotlib.pyplot as plt
 autoencoder = LitAutoEncoder()
 
 # Data Loaders
-train_loader = DareDataloader("train",batch_size=128)
-val_loader   = DareDataloader("val",  batch_size=128)
-test_loader  = DareDataloader("test", batch_size=128)
+train_loader = DareDataloader("train")
+val_loader   = DareDataloader("val")
+test_loader  = DareDataloader("test")
 
 # PyTorch Lightning Train
 trainer = pl.Trainer(
-    limit_train_batches=17,
-    limit_val_batches=2,
-    limit_test_batches=2,
-    max_epochs=100,
-    log_every_n_steps=10,
-    accelerator="gpu",
-    devices=1,
-    strategy="dp"
+    limit_train_batches = getConfig()['train_batches'],
+    limit_val_batches   = getConfig()['val_batches'],
+    limit_test_batches  = getConfig()['test_batches'],
+    max_epochs          = getConfig()['max_epochs'],
+    log_every_n_steps   = getConfig()['log_every_n_steps'],
+    accelerator         = getConfig()['accelerator'],
+    devices             = getConfig()['devices'],
+    strategy            = getConfig()['strategy']
     )
 
 trainer.fit(

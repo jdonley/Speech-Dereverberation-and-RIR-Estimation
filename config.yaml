@@ -1,2 +1,15 @@
 datasets_path: D:\Datasets
 random_seed: 230
+
+batch_size: 128
+train_batches: 17
+val_batches: 2
+test_batches: 2
+max_epochs: 100
+
+log_every_n_steps: 10
+
+accelerator: gpu
+devices: 1
+strategy: dp
+
