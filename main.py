@@ -7,12 +7,16 @@ import pytorch_lightning as pl
 autoencoder = LitAutoEncoder()
 
 # Data Loaders
-train_loader = DareDataloader("train")
-val_loader   = DareDataloader("val")
-test_loader  = DareDataloader("test")
+train_loader = DareDataloader("train",batch_size=128)
+val_loader   = DareDataloader("val",  batch_size=128)
+test_loader  = DareDataloader("test", batch_size=128)
+
+print(len(train_loader))
+print(len(val_loader))
+print(len(test_loader))
 
 # PyTorch Lightning Train
-trainer = pl.Trainer(limit_train_batches=4000, max_epochs=10, accelerator="gpu", devices=1, strategy="dp")
+trainer = pl.Trainer(limit_train_batches=17, limit_val_batches=2, max_epochs=100, log_every_n_steps=2, accelerator="gpu", devices=1, strategy="dp")
 trainer.fit(model=autoencoder, train_dataloaders=train_loader, val_dataloaders=val_loader)
 
 # ===========================================================

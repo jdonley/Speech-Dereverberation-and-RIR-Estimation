@@ -19,13 +19,19 @@ class DareDataset(Dataset):
         self.speech_dataset = LibriSpeechDataset(type=self.type)
 
         self.samplerate = 16000
-        self.reverb_speech_duration = 20 * self.samplerate
+        self.reverb_speech_duration = 10 * self.samplerate
 
         self.reverb_speech = np.empty((
-            50 * len(self.rir_dataset), 
+            30 * len(self.rir_dataset), 
             self.reverb_speech_duration))
         self.reverb_speech[:] = np.nan
         self.reverb_speech = t.tensor(self.reverb_speech, dtype=t.float).to(self.device)
+
+        self.speech = np.empty((
+            30 * len(self.rir_dataset), 
+            self.reverb_speech_duration))
+        self.speech[:] = np.nan
+        self.speech = t.tensor(self.speech, dtype=t.float).to(self.device)
 
     def __len__(self):
         return len(self.speech_dataset) * len(self.rir_dataset)
@@ -53,9 +59,20 @@ class DareDataset(Dataset):
                 mode="constant", value=0
                 )
             
-            self.reverb_speech[idx,:] = reverb_speech
-        
-        return self.reverb_speech[idx,:]
+            reverb_speech = reverb_speech[:self.reverb_speech_duration]
 
-def DareDataloader(type="train"):
-    return DataLoader(DareDataset(type))
+            speech = t.nn.functional.pad(
+                speech,
+                pad=(0, self.reverb_speech_duration - len(speech)),
+                mode="constant", value=0
+                )
+            
+            speech = speech[:self.reverb_speech_duration]
+
+            self.reverb_speech[idx,:] = reverb_speech
+            self.speech[idx,:] = speech
+        
+        return self.reverb_speech[idx,:], self.speech[idx,:]
+
+def DareDataloader(type="train", batch_size=128):
+    return DataLoader(DareDataset(type), batch_size=batch_size)
