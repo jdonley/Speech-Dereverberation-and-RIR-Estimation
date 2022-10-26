@@ -37,7 +37,25 @@ class LitAutoEncoder(pl.LightningModule):
         self.log("val_loss", loss)
         return loss
 
+    def test_step(self, batch, batch_idx):
+        # test_step defines the test loop.
+        # it is independent of forward
+        x, y = batch
+        x = x.view(x.size(0), -1)
+        z = self.encoder(x)
+        x_hat = self.decoder(z)
+        loss = nn.functional.mse_loss(x_hat, y)
+        # Logging to TensorBoard by default
+        self.log("test_loss", loss)
+        return loss
+
+    def predict(self, x):
+        x = x.view(x.size(0), -1)
+        z = self.encoder(x)
+        x_hat = self.decoder(z)
+        return x_hat
+
     def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters(), lr=1e-3)
+        optimizer = optim.Adam(self.parameters(), lr=1e-4)
         return optimizer
 
