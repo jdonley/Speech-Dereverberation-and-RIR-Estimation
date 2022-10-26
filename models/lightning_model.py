@@ -10,8 +10,8 @@ class LitAutoEncoder(pl.LightningModule):
     def __init__(self):
         super().__init__()
 
-        self.encoder = nn.Sequential(nn.Linear(80000, 64), nn.ReLU(), nn.Linear(64, 8))
-        self.decoder = nn.Sequential(nn.Linear(8, 64), nn.ReLU(), nn.Linear(64, 80000))
+        self.encoder = nn.Sequential(nn.Linear(256*256*2, 64), nn.ReLU(), nn.Linear(64, 8))
+        self.decoder = nn.Sequential(nn.Linear(8, 64), nn.ReLU(), nn.Linear(64, 256*256*2))
 
     def training_step(self, batch, batch_idx):
         # training_step defines the train loop.
