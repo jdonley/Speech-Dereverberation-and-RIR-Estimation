@@ -19,16 +19,16 @@ class DareDataset(Dataset):
         self.speech_dataset = LibriSpeechDataset(type=self.type)
 
         self.samplerate = 16000
-        self.reverb_speech_duration = 10 * self.samplerate
+        self.reverb_speech_duration = 5 * self.samplerate
 
         self.reverb_speech = np.empty((
-            30 * len(self.rir_dataset), 
+            60 * len(self.rir_dataset), 
             self.reverb_speech_duration))
         self.reverb_speech[:] = np.nan
         self.reverb_speech = t.tensor(self.reverb_speech, dtype=t.float).to(self.device)
 
         self.speech = np.empty((
-            30 * len(self.rir_dataset), 
+            60 * len(self.rir_dataset), 
             self.reverb_speech_duration))
         self.speech[:] = np.nan
         self.speech = t.tensor(self.speech, dtype=t.float).to(self.device)
