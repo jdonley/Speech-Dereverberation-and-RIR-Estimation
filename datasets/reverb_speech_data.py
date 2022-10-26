@@ -18,8 +18,9 @@ class DareDataset(Dataset):
         self.rir_dataset = MitIrSurveyDataset(type=self.type, device="cpu")
         self.speech_dataset = LibriSpeechDataset(type=self.type)
 
-        self.samplerate = 16000
-        self.reverb_speech_duration = 5 * self.samplerate
+        self.samplerate   = 16000
+        self.reverb_speech_duration = 5 * self.samplerate # 10-second samples
+        self.rir_duration = 2 * self.samplerate # the longest RIR is just under 2 seconds, so make them all that long
 
         self.reverb_speech = np.empty((
             60 * len(self.rir_dataset), 
@@ -32,6 +33,12 @@ class DareDataset(Dataset):
             self.reverb_speech_duration))
         self.speech[:] = np.nan
         self.speech = t.tensor(self.speech, dtype=t.float).to(self.device)
+
+        self.rir = np.empty((
+            30 * len(self.rir_dataset), 
+            self.rir_duration))
+        self.rir[:] = np.nan
+        self.rir = t.tensor(self.rir, dtype=t.float).to(self.device)
 
     def __len__(self):
         return len(self.speech_dataset) * len(self.rir_dataset)
@@ -47,32 +54,40 @@ class DareDataset(Dataset):
             rir = rir[~rir.isnan()]
             fs_rir = self.rir_dataset.samplerate
 
-            rir = librosa.resample(rir.numpy(), orig_sr=fs_rir, target_sr=fs_speech)
+            rir = librosa.resample(rir.numpy(), orig_sr=fs_rir, target_sr=fs_speech) # downsample the RIRs from 32 kHz to 16 kHz
             rir = t.tensor(rir, dtype=t.float).to(self.rir_dataset.device)
 
             reverb_speech = signal.fftconvolve(speech, rir, mode='full', axes=None)
             reverb_speech = t.tensor(reverb_speech, dtype=t.float).to(self.device)
 
-            reverb_speech = t.nn.functional.pad(
+            reverb_speech = t.nn.functional.pad( # pad the reverberant speech with zeros if shorter than 10s
                 reverb_speech,
                 pad=(0, self.reverb_speech_duration - len(reverb_speech)),
                 mode="constant", value=0
                 )
             
-            reverb_speech = reverb_speech[:self.reverb_speech_duration]
+            reverb_speech = reverb_speech[:self.reverb_speech_duration] # crop the reverberant speech to 10s if longer
 
-            speech = t.nn.functional.pad(
+            speech = t.nn.functional.pad( # pad the clean speech with zeros if shorter than 10s
                 speech,
                 pad=(0, self.reverb_speech_duration - len(speech)),
                 mode="constant", value=0
                 )
             
-            speech = speech[:self.reverb_speech_duration]
+            speech = speech[:self.reverb_speech_duration] # crop the clean speech to 10s if longer
 
+
+            rir = t.nn.functional.pad( # pad the RIR to 2s if shorter
+                rir,
+                pad=(0, self.rir_duration - len(rir)),
+                mode="constant", value=0
+                )
+        
             self.reverb_speech[idx,:] = reverb_speech
             self.speech[idx,:] = speech
-        
-        return self.reverb_speech[idx,:], self.speech[idx,:]
+            self.rir[idx,:] = rir
+
+        return self.reverb_speech[idx,:], self.speech[idx,:], self.rir[idx,:]
 
 def DareDataloader(type="train", batch_size=128):
     return DataLoader(DareDataset(type), batch_size=batch_size)
