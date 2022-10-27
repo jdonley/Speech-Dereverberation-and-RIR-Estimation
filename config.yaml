@@ -1,4 +1,4 @@
-datasets_path: D:\Datasets
+datasets_path: C:\Datasets
 random_seed: 230
 
 batch_size: 4
