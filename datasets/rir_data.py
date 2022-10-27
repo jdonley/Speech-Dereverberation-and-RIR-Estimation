@@ -43,24 +43,25 @@ class MitIrSurveyDataset(Dataset):
         self.device = device
         
         max_rir_len = 63971 # max num samples
-        self.irs = np.empty((len(self.split), max_rir_len))
-        self.irs[:] = np.nan
-        self.irs = t.tensor(self.irs, dtype=t.float).to(self.device)
+        #self.irs = np.empty((len(self.split), max_rir_len))
+        #self.irs[:] = np.nan
+        #self.irs = t.tensor(self.irs, dtype=t.float).to(self.device)
 
     def __len__(self):
         return len(self.split)
 
     def __getitem__(self, idx):
-        if t.all(t.isnan(self.irs[idx,:])):
-            filename = self.split_filenames[idx]
-            #audio_path = os.path.join(self.audio_dir, filename[0:3], filename + ".ogg")
-            audio_data, samplerate = sf.read(filename)
-            if samplerate != self.samplerate:
-                raise Exception("The samplerate of the audio in the dataset is not 32kHz.")
-            
-            self.irs[idx,:len(audio_data)] = t.tensor(audio_data, dtype=t.float).to(self.device)
+        #if t.all(t.isnan(self.irs[idx,:])):
+        filename = self.split_filenames[idx]
+        #audio_path = os.path.join(self.audio_dir, filename[0:3], filename + ".ogg")
+        audio_data, samplerate = sf.read(filename)
+        if samplerate != self.samplerate:
+            raise Exception("The samplerate of the audio in the dataset is not 32kHz.")
         
-        return self.irs[idx,:]
+        #self.irs[idx,:len(audio_data)] = t.tensor(audio_data, dtype=t.float).to(self.device)
+    
+        #return self.irs[idx,:]
+        return t.tensor(audio_data, dtype=t.float).to(self.device)
 
     def download_mit_ir_survey(self, local_path):
         url = "https://mcdermottlab.mit.edu/Reverb/IRMAudio/Audio.zip"
