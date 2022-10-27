@@ -1,8 +1,8 @@
 datasets_path: D:\Datasets
 random_seed: 230
 
-batch_size: 128
-train_batches: 17
+batch_size: 4
+train_batches: 350
 val_batches: 2
 test_batches: 2
 max_epochs: 100
@@ -13,3 +13,5 @@ accelerator: gpu
 devices: 1
 strategy: dp
 
+num_workers: 16
+persistent_workers: True

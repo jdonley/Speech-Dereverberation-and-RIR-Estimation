@@ -18,6 +18,7 @@ class LitAutoEncoder(pl.LightningModule):
         # it is independent of forward
         x, y = batch
         x = x.view(x.size(0), -1)
+        y = y.view(y.size(0), -1)
         z = self.encoder(x)
         x_hat = self.decoder(z)
         loss = nn.functional.mse_loss(x_hat, y)
@@ -30,6 +31,7 @@ class LitAutoEncoder(pl.LightningModule):
         # it is independent of forward
         x, y = batch
         x = x.view(x.size(0), -1)
+        y = y.view(y.size(0), -1)
         z = self.encoder(x)
         x_hat = self.decoder(z)
         loss = nn.functional.mse_loss(x_hat, y)
@@ -42,6 +44,7 @@ class LitAutoEncoder(pl.LightningModule):
         # it is independent of forward
         x, y = batch
         x = x.view(x.size(0), -1)
+        y = y.view(y.size(0), -1)
         z = self.encoder(x)
         x_hat = self.decoder(z)
         loss = nn.functional.mse_loss(x_hat, y)
