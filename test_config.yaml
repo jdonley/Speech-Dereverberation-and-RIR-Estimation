@@ -1,0 +1,17 @@
+datasets_path: /home/runner/
+random_seed: 230
+
+batch_size: 1
+train_batches: 1
+val_batches: 1
+test_batches: 1
+max_epochs: 1
+
+log_every_n_steps: 1
+
+accelerator: cpu
+devices: 1
+strategy: dp
+
+num_workers: 1
+persistent_workers: False

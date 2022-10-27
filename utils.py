@@ -7,3 +7,6 @@ def getConfig(configFilePath="config.yaml"):
         except yaml.YAMLError as exc:
             print(exc)
     return config
+
+def getTestConfig():
+    return getConfig("test_config.yaml")
