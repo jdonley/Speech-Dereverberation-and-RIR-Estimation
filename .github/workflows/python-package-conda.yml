@@ -20,9 +20,9 @@ jobs:
         echo $CONDA/bin >> $GITHUB_PATH
     - name: Install dependencies
       run: |
+        sudo apt-get install libsndfile1
         conda install python=3.8 anaconda
         conda install pytorch pytorch-lightning torchvision torchaudio cudatoolkit=11.6 numpy pyyaml matplotlib librosa -c pytorch -c conda-forge
-        python -m pip install soundfile
     - name: Lint with flake8
       run: |
         conda install flake8
