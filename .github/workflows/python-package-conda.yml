@@ -20,7 +20,9 @@ jobs:
         echo $CONDA/bin >> $GITHUB_PATH
     - name: Install dependencies
       run: |
-        conda env update --file environment.yaml --name base
+        conda create -n SpeechDARE python=3.8 anaconda
+        conda activate SpeechDARE
+        conda install pytorch pytorch-lightning torchvision torchaudio cudatoolkit=11.6 numpy pyyaml matplotlib librosa -c pytorch -c conda-forge
     - name: Lint with flake8
       run: |
         conda install flake8
