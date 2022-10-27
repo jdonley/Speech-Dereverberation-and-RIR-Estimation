@@ -24,6 +24,8 @@ class DareDataset(Dataset):
         self.nfrms = 256
         self.samplerate = self.speech_dataset[0][1]
 
+        self.rir_duration = 2 * self.samplerate # the longest RIR is just under 2 seconds, so make them all that long
+
         self.nhop = 256
         self.num_speech_samples = 30 #0
         self.reverb_speech_duration = self.nfrms * (self.nfft+1)//2
@@ -49,6 +51,12 @@ class DareDataset(Dataset):
         #self.speech[:] = np.nan
         #self.speech = t.tensor(self.speech, dtype=t.float).to(self.device)
 
+        #self.rir = np.empty((
+        #    30 * len(self.rir_dataset), 
+        #    self.rir_duration))
+        #self.rir[:] = np.nan
+        #self.rir = t.tensor(self.rir, dtype=t.float).to(self.device)
+
     def __len__(self):
         return len(self.speech_dataset) * len(self.rir_dataset)
 
@@ -59,9 +67,10 @@ class DareDataset(Dataset):
 
         speech = self.speech_dataset[idx_speech][0].to(self.device).flatten()
 
+
         rir = self.rir_dataset[idx_rir].flatten()
         rir = rir[~rir.isnan()]
-        rir = self.resampler(rir)
+        rir = self.resampler(rir) # downsample the RIRs to match the speech samplerate
         
         reverb_speech = t.nn.functional.conv1d(
             speech.view(1,1,-1),
@@ -109,8 +118,14 @@ class DareDataset(Dataset):
         #self.speech[idx,:,:,1] = speech_stft.angle()
         speech = t.stack((speech_stft.abs(), speech_stft.angle()))
         
+        rir = t.nn.functional.pad( # pad the RIR to 2s if shorter
+            rir,
+            pad=(0, self.rir_duration - len(rir)),
+            mode="constant", value=0
+        )
+        
         #return self.reverb_speech[idx,:,:,:], self.speech[idx,:,:,:]
-        return reverb_speech, speech
+        return reverb_speech, speech, rir
 
 def DareDataloader(type="train"):
     return DataLoader(
