@@ -3,6 +3,7 @@ from torch import optim, nn, utils, Tensor
 from torchvision.datasets import MNIST
 from torchvision.transforms import ToTensor
 import pytorch_lightning as pl
+import torch
 
 # define the LightningModule
 class LitAutoEncoder(pl.LightningModule):
@@ -134,3 +135,7 @@ class ErnstUnet(pl.LightningModule):
         # Logging to TensorBoard by default
         self.log("val_loss", loss)
         return loss
+
+    def configure_optimizers(self):
+        optimizer = optim.Adam(self.parameters(), lr=1e-3)
+        return optimizer

@@ -1,4 +1,4 @@
-from models.lightning_model import LitAutoEncoder
+from models.lightning_model import ErnstUnet, LitAutoEncoder
 from datasets.reverb_speech_data import DareDataloader
 import pytorch_lightning as pl
 from utils import getConfig
@@ -6,7 +6,8 @@ from utils import getConfig
 def main():
     # ===========================================================
     # PyTorch Lightning Models
-    autoencoder = LitAutoEncoder()
+    #autoencoder = LitAutoEncoder()
+    unet = ErnstUnet()
 
     # Data Loaders
     train_loader = DareDataloader("train")
@@ -27,7 +28,8 @@ def main():
         )
 
     trainer.fit(
-        model=autoencoder,
+        #model=autoencoder,
+        model=unet,
         train_dataloaders=train_loader,
         val_dataloaders=val_loader
         )
@@ -35,7 +37,8 @@ def main():
     # ===========================================================
     # PyTorch Lightning Test
     trainer.test(
-        model=autoencoder,
+        #model=autoencoder,
+        model=unet,
         dataloaders=test_loader,
         ckpt_path="best"
         )
