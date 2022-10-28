@@ -1,4 +1,5 @@
 # Speech-Dereverberation-and-RIR-Estimation
+![CI Tests](https://github.com/jdonley/Speech-Dereverberation-and-RIR-Estimation/actions/workflows/python-package-conda.yml/badge.svg)
 
 ## Setup
 
