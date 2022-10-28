@@ -1,4 +1,4 @@
-from models.lightning_model import LitAutoEncoder
+from models.lightning_model import *
 #from datasets.reverb_speech_data import DareDataloader
 #import pytorch_lightning as pl
 #from utils import getTestConfig
@@ -7,6 +7,7 @@ def dummy_flow():
     # ===========================================================
     # PyTorch Lightning Models
     autoencoder = LitAutoEncoder()
+    unet = ErnstUnet()
 
     # Data Loaders
     #train_loader = DareDataloader("train")
