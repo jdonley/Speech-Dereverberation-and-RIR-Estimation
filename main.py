@@ -39,6 +39,8 @@ def main():
         dataloaders=test_loader,
         ckpt_path="best"
         )
+    
+    return True
 
 if __name__ == "__main__":
         main()
