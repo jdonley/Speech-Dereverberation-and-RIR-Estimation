@@ -94,13 +94,13 @@ class ErnstUnet(pl.LightningModule):
         c8Out = self.conv1(c7Out) # (1 x 1 x 512)
 
         d1Out = self.deconv1(c8Out) # (2 x 2 x 1024)
-        d2Out = self.deconv2(torch.cat([d1Out, c7Out], axis=-1)) # (4 x 4 x 1024)
-        d3Out = self.deconv3(torch.cat([d2Out, c6Out], axis=-1)) # (8 x 8 x 1024)
-        d4Out = self.deconv4(torch.cat([d3Out, c5Out], axis=-1)) # (16 x 16 x 1024)
-        d5Out = self.deconv5(torch.cat([d4Out, c4Out], axis=-1)) # (32 x 32 x 512)
-        d6Out = self.deconv6(torch.cat([d5Out, c3Out], axis=-1)) # (64 x 64 x 256)
-        d7Out = self.deconv7(torch.cat([d6Out, c2Out], axis=-1)) # (128 x 128 x 128)
-        d8Out = self.deconv8(torch.cat([d7Out, c1Out], axis=-1)) # (256 x 256 x 1)
+        d2Out = self.deconv2(torch.cat((d1Out, c7Out), -1)) # (4 x 4 x 1024)
+        d3Out = self.deconv3(torch.cat((d2Out, c6Out), -1)) # (8 x 8 x 1024)
+        d4Out = self.deconv4(torch.cat((d3Out, c5Out), -1)) # (16 x 16 x 1024)
+        d5Out = self.deconv5(torch.cat((d4Out, c4Out), -1)) # (32 x 32 x 512)
+        d6Out = self.deconv6(torch.cat((d5Out, c3Out), -1)) # (64 x 64 x 256)
+        d7Out = self.deconv7(torch.cat((d6Out, c2Out), -1)) # (128 x 128 x 128)
+        d8Out = self.deconv8(torch.cat((d7Out, c1Out), -1)) # (256 x 256 x 1)
 
         loss   = nn.functional.mse_loss(d8Out, y)
         # Logging to TensorBoard by default
