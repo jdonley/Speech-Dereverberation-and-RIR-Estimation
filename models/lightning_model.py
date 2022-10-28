@@ -3,7 +3,7 @@ from torch import optim, nn, utils, Tensor
 from torchvision.datasets import MNIST
 from torchvision.transforms import ToTensor
 import pytorch_lightning as pl
-import torch
+import torch as t
 
 # define the LightningModule
 class LitAutoEncoder(pl.LightningModule):
@@ -84,23 +84,23 @@ class ErnstUnet(pl.LightningModule):
         x, y, z = batch # reverberant speech, clean speech, RIR (RIR not used in this base UNet model)
         
         # each x = (256 x 256 x 1)
-        c1Out = self.conv1(x)     # (128 x 128 x 64)
-        c2Out = self.conv1(c1Out) # (64 x 64 x 128)
-        c3Out = self.conv1(c2Out) # (32 x 32 x 256)
-        c4Out = self.conv1(c3Out) # (16 x 16 x 512)
-        c5Out = self.conv1(c4Out) # (8 x 8 x 512)
-        c6Out = self.conv1(c5Out) # (4 x 4 x 512)
-        c7Out = self.conv1(c6Out) # (2 x 2 x 512)
-        c8Out = self.conv1(c7Out) # (1 x 1 x 512)
+        c1Out = self.conv1(x[:,[0],:,:])     # (128 x 128 x 64)
+        c2Out = self.conv2(c1Out) # (64 x 64 x 128)
+        c3Out = self.conv3(c2Out) # (32 x 32 x 256)
+        c4Out = self.conv4(c3Out) # (16 x 16 x 512)
+        c5Out = self.conv5(c4Out) # (8 x 8 x 512)
+        c6Out = self.conv6(c5Out) # (4 x 4 x 512)
+        c7Out = self.conv7(c6Out) # (2 x 2 x 512)
+        c8Out = self.conv8(c7Out) # (1 x 1 x 512)
 
         d1Out = self.deconv1(c8Out) # (2 x 2 x 1024)
-        d2Out = self.deconv2(torch.cat([d1Out, c7Out], axis=-1)) # (4 x 4 x 1024)
-        d3Out = self.deconv3(torch.cat([d2Out, c6Out], axis=-1)) # (8 x 8 x 1024)
-        d4Out = self.deconv4(torch.cat([d3Out, c5Out], axis=-1)) # (16 x 16 x 1024)
-        d5Out = self.deconv5(torch.cat([d4Out, c4Out], axis=-1)) # (32 x 32 x 512)
-        d6Out = self.deconv6(torch.cat([d5Out, c3Out], axis=-1)) # (64 x 64 x 256)
-        d7Out = self.deconv7(torch.cat([d6Out, c2Out], axis=-1)) # (128 x 128 x 128)
-        d8Out = self.deconv8(torch.cat([d7Out, c1Out], axis=-1)) # (256 x 256 x 1)
+        d2Out = self.deconv2(t.cat([d1Out, c7Out], axis=-1)) # (4 x 4 x 1024)
+        d3Out = self.deconv3(t.cat([d2Out, c6Out], axis=-1)) # (8 x 8 x 1024)
+        d4Out = self.deconv4(t.cat([d3Out, c5Out], axis=-1)) # (16 x 16 x 1024)
+        d5Out = self.deconv5(t.cat([d4Out, c4Out], axis=-1)) # (32 x 32 x 512)
+        d6Out = self.deconv6(t.cat([d5Out, c3Out], axis=-1)) # (64 x 64 x 256)
+        d7Out = self.deconv7(t.cat([d6Out, c2Out], axis=-1)) # (128 x 128 x 128)
+        d8Out = self.deconv8(t.cat([d7Out, c1Out], axis=-1)) # (256 x 256 x 1)
 
         loss   = nn.functional.mse_loss(d8Out, y)
         # Logging to TensorBoard by default
@@ -113,23 +113,52 @@ class ErnstUnet(pl.LightningModule):
         x, y, z = batch # reverberant speech, clean speech, RIR (RIR not used in this base UNet model)
         
         # each x = (256 x 256 x 1)
-        c1Out = self.conv1(x)     # (128 x 128 x 64)
-        c2Out = self.conv1(c1Out) # (64 x 64 x 128)
-        c3Out = self.conv1(c2Out) # (32 x 32 x 256)
-        c4Out = self.conv1(c3Out) # (16 x 16 x 512)
-        c5Out = self.conv1(c4Out) # (8 x 8 x 512)
-        c6Out = self.conv1(c5Out) # (4 x 4 x 512)
-        c7Out = self.conv1(c6Out) # (2 x 2 x 512)
-        c8Out = self.conv1(c7Out) # (1 x 1 x 512)
+        c1Out = self.conv1(x[:,[0],:,:])     # (128 x 128 x 64)
+        c2Out = self.conv2(c1Out) # (64 x 64 x 128)
+        c3Out = self.conv3(c2Out) # (32 x 32 x 256)
+        c4Out = self.conv4(c3Out) # (16 x 16 x 512)
+        c5Out = self.conv5(c4Out) # (8 x 8 x 512)
+        c6Out = self.conv6(c5Out) # (4 x 4 x 512)
+        c7Out = self.conv7(c6Out) # (2 x 2 x 512)
+        c8Out = self.conv8(c7Out) # (1 x 1 x 512)
 
         d1Out = self.deconv1(c8Out) # (2 x 2 x 1024)
-        d2Out = self.deconv2(torch.cat([d1Out, c7Out], axis=-1)) # (4 x 4 x 1024)
-        d3Out = self.deconv3(torch.cat([d2Out, c6Out], axis=-1)) # (8 x 8 x 1024)
-        d4Out = self.deconv4(torch.cat([d3Out, c5Out], axis=-1)) # (16 x 16 x 1024)
-        d5Out = self.deconv5(torch.cat([d4Out, c4Out], axis=-1)) # (32 x 32 x 512)
-        d6Out = self.deconv6(torch.cat([d5Out, c3Out], axis=-1)) # (64 x 64 x 256)
-        d7Out = self.deconv7(torch.cat([d6Out, c2Out], axis=-1)) # (128 x 128 x 128)
-        d8Out = self.deconv8(torch.cat([d7Out, c1Out], axis=-1)) # (256 x 256 x 1)
+        d2Out = self.deconv2(t.cat([d1Out, c7Out], axis=-1)) # (4 x 4 x 1024)
+        d3Out = self.deconv3(t.cat([d2Out, c6Out], axis=-1)) # (8 x 8 x 1024)
+        d4Out = self.deconv4(t.cat([d3Out, c5Out], axis=-1)) # (16 x 16 x 1024)
+        d5Out = self.deconv5(t.cat([d4Out, c4Out], axis=-1)) # (32 x 32 x 512)
+        d6Out = self.deconv6(t.cat([d5Out, c3Out], axis=-1)) # (64 x 64 x 256)
+        d7Out = self.deconv7(t.cat([d6Out, c2Out], axis=-1)) # (128 x 128 x 128)
+        d8Out = self.deconv8(t.cat([d7Out, c1Out], axis=-1)) # (256 x 256 x 1)
+
+        loss   = nn.functional.mse_loss(d8Out, y)
+        # Logging to TensorBoard by default
+        self.log("val_loss", loss)
+        return loss
+
+    def test_step(self, batch, batch_idx):
+        # test_step defines the test loop.
+        # it is independent of forward
+        x, y, z = batch # reverberant speech, clean speech, RIR (RIR not used in this base UNet model)
+        
+        # each x = (256 x 256 x 1)
+        c1Out = self.conv1(x[:,[0],:,:])     # (128 x 128 x 64)
+        c2Out = self.conv2(c1Out) # (64 x 64 x 128)
+        c3Out = self.conv3(c2Out) # (32 x 32 x 256)
+        c4Out = self.conv4(c3Out) # (16 x 16 x 512)
+        c5Out = self.conv5(c4Out) # (8 x 8 x 512)
+        c6Out = self.conv6(c5Out) # (4 x 4 x 512)
+        c7Out = self.conv7(c6Out) # (2 x 2 x 512)
+        c8Out = self.conv8(c7Out) # (1 x 1 x 512)
+
+        d1Out = self.deconv1(c8Out) # (2 x 2 x 1024)
+        d2Out = self.deconv2(t.cat([d1Out, c7Out], axis=-1)) # (4 x 4 x 1024)
+        d3Out = self.deconv3(t.cat([d2Out, c6Out], axis=-1)) # (8 x 8 x 1024)
+        d4Out = self.deconv4(t.cat([d3Out, c5Out], axis=-1)) # (16 x 16 x 1024)
+        d5Out = self.deconv5(t.cat([d4Out, c4Out], axis=-1)) # (32 x 32 x 512)
+        d6Out = self.deconv6(t.cat([d5Out, c3Out], axis=-1)) # (64 x 64 x 256)
+        d7Out = self.deconv7(t.cat([d6Out, c2Out], axis=-1)) # (128 x 128 x 128)
+        d8Out = self.deconv8(t.cat([d7Out, c1Out], axis=-1)) # (256 x 256 x 1)
 
         loss   = nn.functional.mse_loss(d8Out, y)
         # Logging to TensorBoard by default
