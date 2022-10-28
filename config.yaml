@@ -1,8 +1,8 @@
 datasets_path: C:\Datasets
 random_seed: 230
 
-batch_size: 8
-train_batches: 350
+batch_size: 32
+train_batches: 1000
 val_batches: 2
 test_batches: 2
 max_epochs: 100
