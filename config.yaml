@@ -13,5 +13,5 @@ accelerator: gpu
 devices: 1
 strategy: dp
 
-num_workers: 1
-persistent_workers: True
+num_workers: 0
+persistent_workers: False

@@ -78,13 +78,16 @@ class ErnstUnet(pl.LightningModule):
         self.deconv7 = nn.Sequential(nn.ConvTranspose2d( 256,  64, 5, stride=2, padding=2, output_padding=1), nn.BatchNorm2d(64),  nn.ReLU())
         self.deconv8 = nn.Sequential(nn.ConvTranspose2d( 128,   1, 5, stride=2, padding=2, output_padding=1), nn.Tanh())
     
+
     def training_step(self, batch, batch_idx):
         # training_step defines the train loop.
         # it is independent of forward
         x, y, z = batch # reverberant speech, clean speech, RIR (RIR not used in this base UNet model)
-        
+        x = x[:,[0],:,:]
+        y = y[:,[0],:,:]
+
         # each x = (256 x 256 x 1)
-        c1Out = self.conv1(x[:,[0],:,:])     # (128 x 128 x 64)
+        c1Out = self.conv1(x)     # (128 x 128 x 64)
         c2Out = self.conv2(c1Out) # (64 x 64 x 128)
         c3Out = self.conv3(c2Out) # (32 x 32 x 256)
         c4Out = self.conv4(c3Out) # (16 x 16 x 512)
@@ -103,6 +106,16 @@ class ErnstUnet(pl.LightningModule):
         d8Out = self.deconv8(t.cat((d7Out, c1Out), dim=1)) # (256 x 256 x 1)
 
         loss   = nn.functional.mse_loss(d8Out, y)
+        #if batch_idx==0 or batch_idx==1000:
+        #import matplotlib.pyplot as plt
+        #if batch_idx==999:
+        #    for i in range(2):
+        #        plt.imshow(x[i,0,:,:].squeeze().to('cpu').numpy())
+        #        plt.show()
+        #        plt.imshow(y[i,0,:,:].squeeze().to('cpu').numpy())
+        #        plt.show()
+        #        plt.imshow(d8Out[i,0,:,:].squeeze().detach().to('cpu').numpy())
+        #        plt.show()
         # Logging to TensorBoard by default
         self.log("train_loss", loss)
         return loss
@@ -111,9 +124,11 @@ class ErnstUnet(pl.LightningModule):
         # validation_step defines the validation loop.
         # it is independent of forward
         x, y, z = batch # reverberant speech, clean speech, RIR (RIR not used in this base UNet model)
+        x = x[:,[0],:,:]
+        y = y[:,[0],:,:]
         
         # each x = (256 x 256 x 1)
-        c1Out = self.conv1(x[:,[0],:,:])     # (128 x 128 x 64)
+        c1Out = self.conv1(x)     # (128 x 128 x 64)
         c2Out = self.conv2(c1Out) # (64 x 64 x 128)
         c3Out = self.conv3(c2Out) # (32 x 32 x 256)
         c4Out = self.conv4(c3Out) # (16 x 16 x 512)
@@ -140,9 +155,11 @@ class ErnstUnet(pl.LightningModule):
         # test_step defines the test loop.
         # it is independent of forward
         x, y, z = batch # reverberant speech, clean speech, RIR (RIR not used in this base UNet model)
+        x = x[:,[0],:,:]
+        y = y[:,[0],:,:]
         
         # each x = (256 x 256 x 1)
-        c1Out = self.conv1(x[:,[0],:,:])     # (128 x 128 x 64)
+        c1Out = self.conv1(x)     # (128 x 128 x 64)
         c2Out = self.conv2(c1Out) # (64 x 64 x 128)
         c3Out = self.conv3(c2Out) # (32 x 32 x 256)
         c4Out = self.conv4(c3Out) # (16 x 16 x 512)
