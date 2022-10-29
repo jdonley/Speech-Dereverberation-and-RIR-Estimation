@@ -6,8 +6,8 @@ from utils import getConfig
 def main():
     # ===========================================================
     # PyTorch Lightning Models
-    #autoencoder = LitAutoEncoder()
-    unet = ErnstUnet()
+    #autoencoder = LitAutoEncoder(getConfig()['learning_rate'])
+    unet = ErnstUnet(getConfig()['learning_rate'])
 
     # Data Loaders
     train_loader = DareDataloader("train")

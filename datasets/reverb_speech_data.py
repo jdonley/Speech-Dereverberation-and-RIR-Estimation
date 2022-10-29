@@ -106,8 +106,14 @@ class DareDataset(Dataset):
             )
         #self.reverb_speech[idx,:,:,0] = reverb_speech_stft.abs()
         #self.reverb_speech[idx,:,:,1] = reverb_speech_stft.angle()
-        reverb_speech = t.stack((reverb_speech_stft.abs().log(), reverb_speech_stft.angle()))
-        reverb_speech[reverb_speech.isinf()] = self.eps
+
+        rs_mag = reverb_speech_stft.abs().log() # Magnitude
+        rs_mag[rs_mag.isinf()] = self.eps
+        # Normalize to [-1,1]
+        rs_mag = rs_mag - rs_mag.min()
+        rs_mag = rs_mag / rs_mag.max() / 2 - 1
+
+        reverb_speech = t.stack((rs_mag, reverb_speech_stft.angle()))
 
         speech_stft = t.stft(
             speech,
@@ -119,17 +125,23 @@ class DareDataset(Dataset):
             )
         #self.speech[idx,:,:,0] = speech_stft.abs()
         #self.speech[idx,:,:,1] = speech_stft.angle()
-        speech = t.stack((speech_stft.abs().log(), speech_stft.angle()))
-        speech[speech.isinf()] = self.eps
+        s_mag = speech_stft.abs().log() # Magnitude
+        s_mag[s_mag.isinf()] = self.eps
+        # Normalize to [-1,1]
+        s_mag = s_mag - s_mag.min()
+        s_mag = s_mag / s_mag.max() / 2 - 1
+
+        speech = t.stack((s_mag, speech_stft.angle()))
         
         rir = t.nn.functional.pad( # pad the RIR to 2s if shorter
             rir,
             pad=(0, self.rir_duration - len(rir)),
             mode="constant", value=0
         )
-
+        
         #return self.reverb_speech[idx,:,:,:], self.speech[idx,:,:,:]
         return reverb_speech, speech, rir
+        
 
 def DareDataloader(type="train"):
     return DataLoader(

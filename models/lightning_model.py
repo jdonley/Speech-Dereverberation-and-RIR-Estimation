@@ -1,3 +1,4 @@
+from cmath import nan
 import os
 from torch import optim, nn, utils, Tensor
 from torchvision.datasets import MNIST
@@ -7,8 +8,10 @@ import torch as t
 
 # define the LightningModule
 class LitAutoEncoder(pl.LightningModule):
-    def __init__(self):
+    def __init__(self,learning_rate=1e-3):
         super().__init__()
+
+        self.learning_rate = learning_rate
 
         self.encoder = nn.Sequential(nn.Linear(256*256*2, 64), nn.ReLU(), nn.Linear(64, 8))
         self.decoder = nn.Sequential(nn.Linear(8, 64), nn.ReLU(), nn.Linear(64, 256*256*2))
@@ -46,7 +49,7 @@ class LitAutoEncoder(pl.LightningModule):
         #     
            
     def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters(), lr=1e-3)
+        optimizer = optim.Adam(self.parameters(), lr=self.learning_rate)
         return optimizer
 
     def predict(self, x):
@@ -56,8 +59,10 @@ class LitAutoEncoder(pl.LightningModule):
         return x_hat
 
 class ErnstUnet(pl.LightningModule):
-    def __init__(self):
+    def __init__(self,learning_rate=1e-3):
         super().__init__()
+
+        self.learning_rate = learning_rate
 
         # UNet model from "Speech Dereverberation Using Fully Convolutional Networks," Ernst et al., EUSIPCO 2018
         self.conv1   = nn.Sequential(nn.Conv2d(1,    64, 5, stride=2, padding=2), nn.LeakyReLU(0.2))
@@ -107,15 +112,19 @@ class ErnstUnet(pl.LightningModule):
 
         loss   = nn.functional.mse_loss(d8Out, y)
         #if batch_idx==0 or batch_idx==1000:
-        #import matplotlib.pyplot as plt
-        #if batch_idx==999:
+        import matplotlib.pyplot as plt
+        if batch_idx == 9:
         #    for i in range(2):
         #        plt.imshow(x[i,0,:,:].squeeze().to('cpu').numpy())
         #        plt.show()
         #        plt.imshow(y[i,0,:,:].squeeze().to('cpu').numpy())
         #        plt.show()
-        #        plt.imshow(d8Out[i,0,:,:].squeeze().detach().to('cpu').numpy())
-        #        plt.show()
+            plt.imshow(d8Out[0,0,:,:].squeeze().detach().to('cpu').numpy())
+            plt.show(block=False)
+            plt.pause(1)
+            plt.close()
+        #        print(y[i,0,:,:].squeeze().detach().to('cpu').numpy())
+        #        print(d8Out[i,0,:,:].squeeze().detach().to('cpu').numpy())
         # Logging to TensorBoard by default
         self.log("train_loss", loss)
         return loss
@@ -183,5 +192,5 @@ class ErnstUnet(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters(), lr=1e-3)
+        optimizer = optim.Adam(self.parameters(), lr=self.learning_rate)
         return optimizer
