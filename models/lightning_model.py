@@ -1,3 +1,4 @@
+from cmath import nan
 import os
 from torch import optim, nn, utils, Tensor
 from torchvision.datasets import MNIST
@@ -7,8 +8,10 @@ import torch as t
 
 # define the LightningModule
 class LitAutoEncoder(pl.LightningModule):
-    def __init__(self):
+    def __init__(self,learning_rate=1e-3):
         super().__init__()
+
+        self.learning_rate = learning_rate
 
         self.encoder = nn.Sequential(nn.Linear(256*256*2, 64), nn.ReLU(), nn.Linear(64, 8))
         self.decoder = nn.Sequential(nn.Linear(8, 64), nn.ReLU(), nn.Linear(64, 256*256*2))
@@ -46,7 +49,7 @@ class LitAutoEncoder(pl.LightningModule):
         #     
            
     def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters(), lr=1e-3)
+        optimizer = optim.Adam(self.parameters(), lr=self.learning_rate)
         return optimizer
 
     def predict(self, x):
@@ -56,8 +59,10 @@ class LitAutoEncoder(pl.LightningModule):
         return x_hat
 
 class ErnstUnet(pl.LightningModule):
-    def __init__(self):
+    def __init__(self,learning_rate=1e-3):
         super().__init__()
+
+        self.learning_rate = learning_rate
 
         # UNet model from "Speech Dereverberation Using Fully Convolutional Networks," Ernst et al., EUSIPCO 2018
         self.conv1   = nn.Sequential(nn.Conv2d(1,    64, 5, stride=2, padding=2), nn.LeakyReLU(0.2))
@@ -69,22 +74,25 @@ class ErnstUnet(pl.LightningModule):
         self.conv7   = nn.Sequential(nn.Conv2d(512, 512, 5, stride=2, padding=2), nn.BatchNorm2d(512), nn.LeakyReLU(0.2))
         self.conv8   = nn.Sequential(nn.Conv2d(512, 512, 5, stride=2, padding=2), nn.BatchNorm2d(512), nn.ReLU())
         
-        self.deconv1 = nn.Sequential(nn.ConvTranspose2d( 512, 1024, 5, stride=2, padding=2), nn.BatchNorm2d(1024), nn.Dropout2d(p=0.5), nn.ReLU())
-        self.deconv2 = nn.Sequential(nn.ConvTranspose2d(1024, 1024, 5, stride=2, padding=2), nn.BatchNorm2d(1024), nn.Dropout2d(p=0.5), nn.ReLU())
-        self.deconv3 = nn.Sequential(nn.ConvTranspose2d(1024, 1024, 5, stride=2, padding=2), nn.BatchNorm2d(1024), nn.Dropout2d(p=0.5), nn.ReLU())
-        self.deconv4 = nn.Sequential(nn.ConvTranspose2d(1024, 1024, 5, stride=2, padding=2), nn.BatchNorm2d(1024), nn.ReLU())
-        self.deconv5 = nn.Sequential(nn.ConvTranspose2d(1024,  512, 5, stride=2, padding=2), nn.BatchNorm2d(512),  nn.ReLU())
-        self.deconv6 = nn.Sequential(nn.ConvTranspose2d( 512,  256, 5, stride=2, padding=2), nn.BatchNorm2d(256),  nn.ReLU())
-        self.deconv7 = nn.Sequential(nn.ConvTranspose2d( 256,  128, 5, stride=2, padding=2), nn.BatchNorm2d(128),  nn.ReLU())
-        self.deconv8 = nn.Sequential(nn.ConvTranspose2d( 128,    1, 5, stride=2, padding=2), nn.Tanh())
+        self.deconv1 = nn.Sequential(nn.ConvTranspose2d( 512, 512, 5, stride=2, padding=2, output_padding=1), nn.BatchNorm2d(512), nn.Dropout2d(p=0.5), nn.ReLU())
+        self.deconv2 = nn.Sequential(nn.ConvTranspose2d(1024, 512, 5, stride=2, padding=2, output_padding=1), nn.BatchNorm2d(512), nn.Dropout2d(p=0.5), nn.ReLU())
+        self.deconv3 = nn.Sequential(nn.ConvTranspose2d(1024, 512, 5, stride=2, padding=2, output_padding=1), nn.BatchNorm2d(512), nn.Dropout2d(p=0.5), nn.ReLU())
+        self.deconv4 = nn.Sequential(nn.ConvTranspose2d(1024, 512, 5, stride=2, padding=2, output_padding=1), nn.BatchNorm2d(512), nn.ReLU())
+        self.deconv5 = nn.Sequential(nn.ConvTranspose2d(1024, 256, 5, stride=2, padding=2, output_padding=1), nn.BatchNorm2d(256),  nn.ReLU())
+        self.deconv6 = nn.Sequential(nn.ConvTranspose2d( 512, 128, 5, stride=2, padding=2, output_padding=1), nn.BatchNorm2d(128),  nn.ReLU())
+        self.deconv7 = nn.Sequential(nn.ConvTranspose2d( 256,  64, 5, stride=2, padding=2, output_padding=1), nn.BatchNorm2d(64),  nn.ReLU())
+        self.deconv8 = nn.Sequential(nn.ConvTranspose2d( 128,   1, 5, stride=2, padding=2, output_padding=1), nn.Tanh())
     
+
     def training_step(self, batch, batch_idx):
         # training_step defines the train loop.
         # it is independent of forward
         x, y, z = batch # reverberant speech, clean speech, RIR (RIR not used in this base UNet model)
-        
+        x = x[:,[0],:,:]
+        y = y[:,[0],:,:]
+
         # each x = (256 x 256 x 1)
-        c1Out = self.conv1(x[:,[0],:,:])     # (128 x 128 x 64)
+        c1Out = self.conv1(x)     # (128 x 128 x 64)
         c2Out = self.conv2(c1Out) # (64 x 64 x 128)
         c3Out = self.conv3(c2Out) # (32 x 32 x 256)
         c4Out = self.conv4(c3Out) # (16 x 16 x 512)
@@ -94,15 +102,33 @@ class ErnstUnet(pl.LightningModule):
         c8Out = self.conv8(c7Out) # (1 x 1 x 512)
 
         d1Out = self.deconv1(c8Out) # (2 x 2 x 1024)
-        d2Out = self.deconv2(t.cat((d1Out, c7Out), 1)) # (4 x 4 x 1024)
-        d3Out = self.deconv3(t.cat((d2Out, c6Out), 1)) # (8 x 8 x 1024)
-        d4Out = self.deconv4(t.cat((d3Out, c5Out), 1)) # (16 x 16 x 1024)
-        d5Out = self.deconv5(t.cat((d4Out, c4Out), 1)) # (32 x 32 x 512)
-        d6Out = self.deconv6(t.cat((d5Out, c3Out), 1)) # (64 x 64 x 256)
-        d7Out = self.deconv7(t.cat((d6Out, c2Out), 1)) # (128 x 128 x 128)
-        d8Out = self.deconv8(t.cat((d7Out, c1Out), 1)) # (256 x 256 x 1)
+        d2Out = self.deconv2(t.cat((d1Out, c7Out), dim=1)) # (4 x 4 x 1024)
+        d3Out = self.deconv3(t.cat((d2Out, c6Out), dim=1)) # (8 x 8 x 1024)
+        d4Out = self.deconv4(t.cat((d3Out, c5Out), dim=1)) # (16 x 16 x 1024)
+        d5Out = self.deconv5(t.cat((d4Out, c4Out), dim=1)) # (32 x 32 x 512)
+        d6Out = self.deconv6(t.cat((d5Out, c3Out), dim=1)) # (64 x 64 x 256)
+        d7Out = self.deconv7(t.cat((d6Out, c2Out), dim=1)) # (128 x 128 x 128)
+        d8Out = self.deconv8(t.cat((d7Out, c1Out), dim=1)) # (256 x 256 x 1)
 
         loss   = nn.functional.mse_loss(d8Out, y)
+        #if batch_idx==0 or batch_idx==1000:
+        import matplotlib.pyplot as plt
+        if batch_idx == 9:
+        #    for i in range(2):
+        #        plt.imshow(x[i,0,:,:].squeeze().to('cpu').numpy())
+        #        plt.show()
+        #        plt.imshow(y[i,0,:,:].squeeze().to('cpu').numpy())
+        #        plt.show()
+            fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
+            ax1.imshow(x[0,0,:,:].squeeze().detach().to('cpu').numpy())
+            ax2.imshow(y[0,0,:,:].squeeze().detach().to('cpu').numpy())
+            x_hat = d8Out[0,0,:,:].squeeze().detach().to('cpu').numpy()
+            ax3.imshow(x_hat,vmin=x_hat.min(), vmax=x_hat.max())
+            plt.show(block=False)
+            plt.pause(1)
+            plt.close()
+        #        print(y[i,0,:,:].squeeze().detach().to('cpu').numpy())
+        #        print(d8Out[i,0,:,:].squeeze().detach().to('cpu').numpy())
         # Logging to TensorBoard by default
         self.log("train_loss", loss)
         return loss
@@ -111,9 +137,11 @@ class ErnstUnet(pl.LightningModule):
         # validation_step defines the validation loop.
         # it is independent of forward
         x, y, z = batch # reverberant speech, clean speech, RIR (RIR not used in this base UNet model)
+        x = x[:,[0],:,:]
+        y = y[:,[0],:,:]
         
         # each x = (256 x 256 x 1)
-        c1Out = self.conv1(x[:,[0],:,:])     # (128 x 128 x 64)
+        c1Out = self.conv1(x)     # (128 x 128 x 64)
         c2Out = self.conv2(c1Out) # (64 x 64 x 128)
         c3Out = self.conv3(c2Out) # (32 x 32 x 256)
         c4Out = self.conv4(c3Out) # (16 x 16 x 512)
@@ -123,13 +151,44 @@ class ErnstUnet(pl.LightningModule):
         c8Out = self.conv8(c7Out) # (1 x 1 x 512)
 
         d1Out = self.deconv1(c8Out) # (2 x 2 x 1024)
-        d2Out = self.deconv2(t.cat([d1Out, c7Out], axis=-1)) # (4 x 4 x 1024)
-        d3Out = self.deconv3(t.cat([d2Out, c6Out], axis=-1)) # (8 x 8 x 1024)
-        d4Out = self.deconv4(t.cat([d3Out, c5Out], axis=-1)) # (16 x 16 x 1024)
-        d5Out = self.deconv5(t.cat([d4Out, c4Out], axis=-1)) # (32 x 32 x 512)
-        d6Out = self.deconv6(t.cat([d5Out, c3Out], axis=-1)) # (64 x 64 x 256)
-        d7Out = self.deconv7(t.cat([d6Out, c2Out], axis=-1)) # (128 x 128 x 128)
-        d8Out = self.deconv8(t.cat([d7Out, c1Out], axis=-1)) # (256 x 256 x 1)
+        d2Out = self.deconv2(t.cat((d1Out, c7Out), dim=1)) # (4 x 4 x 1024)
+        d3Out = self.deconv3(t.cat((d2Out, c6Out), dim=1)) # (8 x 8 x 1024)
+        d4Out = self.deconv4(t.cat((d3Out, c5Out), dim=1)) # (16 x 16 x 1024)
+        d5Out = self.deconv5(t.cat((d4Out, c4Out), dim=1)) # (32 x 32 x 512)
+        d6Out = self.deconv6(t.cat((d5Out, c3Out), dim=1)) # (64 x 64 x 256)
+        d7Out = self.deconv7(t.cat((d6Out, c2Out), dim=1)) # (128 x 128 x 128)
+        d8Out = self.deconv8(t.cat((d7Out, c1Out), dim=1)) # (256 x 256 x 1)
+
+        loss   = nn.functional.mse_loss(d8Out, y)
+        # Logging to TensorBoard by default
+        self.log("val_loss", loss)
+        return loss
+
+    def test_step(self, batch, batch_idx):
+        # test_step defines the test loop.
+        # it is independent of forward
+        x, y, z = batch # reverberant speech, clean speech, RIR (RIR not used in this base UNet model)
+        x = x[:,[0],:,:]
+        y = y[:,[0],:,:]
+        
+        # each x = (256 x 256 x 1)
+        c1Out = self.conv1(x)     # (128 x 128 x 64)
+        c2Out = self.conv2(c1Out) # (64 x 64 x 128)
+        c3Out = self.conv3(c2Out) # (32 x 32 x 256)
+        c4Out = self.conv4(c3Out) # (16 x 16 x 512)
+        c5Out = self.conv5(c4Out) # (8 x 8 x 512)
+        c6Out = self.conv6(c5Out) # (4 x 4 x 512)
+        c7Out = self.conv7(c6Out) # (2 x 2 x 512)
+        c8Out = self.conv8(c7Out) # (1 x 1 x 512)
+
+        d1Out = self.deconv1(c8Out) # (2 x 2 x 1024)
+        d2Out = self.deconv2(t.cat((d1Out, c7Out), dim=1)) # (4 x 4 x 1024)
+        d3Out = self.deconv3(t.cat((d2Out, c6Out), dim=1)) # (8 x 8 x 1024)
+        d4Out = self.deconv4(t.cat((d3Out, c5Out), dim=1)) # (16 x 16 x 1024)
+        d5Out = self.deconv5(t.cat((d4Out, c4Out), dim=1)) # (32 x 32 x 512)
+        d6Out = self.deconv6(t.cat((d5Out, c3Out), dim=1)) # (64 x 64 x 256)
+        d7Out = self.deconv7(t.cat((d6Out, c2Out), dim=1)) # (128 x 128 x 128)
+        d8Out = self.deconv8(t.cat((d7Out, c1Out), dim=1)) # (256 x 256 x 1)
 
         loss   = nn.functional.mse_loss(d8Out, y)
         # Logging to TensorBoard by default
@@ -137,5 +196,5 @@ class ErnstUnet(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters(), lr=1e-3)
+        optimizer = optim.Adam(self.parameters(), lr=self.learning_rate)
         return optimizer

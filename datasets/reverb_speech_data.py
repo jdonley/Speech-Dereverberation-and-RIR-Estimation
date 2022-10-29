@@ -19,6 +19,8 @@ class DareDataset(Dataset):
         self.rir_dataset = MitIrSurveyDataset(type=self.type, device=device)
         self.speech_dataset = LibriSpeechDataset(type=self.type)
 
+        self.eps = 10**-32
+
         # Approx. 4 seconds at 16kHz
         self.nfft = 511     # Makes it a nice 256 long stft (power of 2 for compute efficiency)
         self.nfrms = 256
@@ -33,7 +35,8 @@ class DareDataset(Dataset):
         self.resampler = ta.transforms.Resample(
             orig_freq=self.rir_dataset.samplerate,
             new_freq=self.samplerate)
-        self.resampler.kernel = self.resampler.kernel.to(device)
+        self.resampler_kernel = self.resampler.kernel # For some reason, this resampler kernel turns to all zeros at hte getitem() call so we save it here and apply it again later separately.
+        self.resampler.kernel = self.resampler_kernel.to(device)
 
         #self.reverb_speech = np.empty((
         #    self.num_speech_samples * len(self.rir_dataset),
@@ -67,11 +70,11 @@ class DareDataset(Dataset):
 
         speech = self.speech_dataset[idx_speech][0].to(self.device).flatten()
 
-
         rir = self.rir_dataset[idx_rir].flatten()
         rir = rir[~rir.isnan()]
+        self.resampler.kernel = self.resampler_kernel.to(self.device)
         rir = self.resampler(rir) # downsample the RIRs to match the speech samplerate
-        
+
         reverb_speech = t.nn.functional.conv1d(
             speech.view(1,1,-1),
             t.flip(rir,(0,)).view(1,1,-1),
@@ -83,9 +86,8 @@ class DareDataset(Dataset):
             pad=(0, self.reverb_speech_duration - len(reverb_speech)),
             mode="constant", value=0
             )
-        
         reverb_speech = reverb_speech[:self.reverb_speech_duration]
-
+        
         speech = t.nn.functional.pad(
             speech.to(self.device),
             pad=(0, self.reverb_speech_duration - len(speech)),
@@ -104,8 +106,15 @@ class DareDataset(Dataset):
             )
         #self.reverb_speech[idx,:,:,0] = reverb_speech_stft.abs()
         #self.reverb_speech[idx,:,:,1] = reverb_speech_stft.angle()
-        reverb_speech = t.stack((reverb_speech_stft.abs(), reverb_speech_stft.angle()))
-        
+
+        rs_mag = reverb_speech_stft.abs().log() # Magnitude
+        rs_mag[rs_mag.isinf()] = self.eps
+        # Normalize to [-1,1]
+        rs_mag = rs_mag - rs_mag.min()
+        rs_mag = rs_mag / rs_mag.max() / 2 - 1
+
+        reverb_speech = t.stack((rs_mag, reverb_speech_stft.angle()))
+
         speech_stft = t.stft(
             speech,
             n_fft=self.nfft,
@@ -116,7 +125,13 @@ class DareDataset(Dataset):
             )
         #self.speech[idx,:,:,0] = speech_stft.abs()
         #self.speech[idx,:,:,1] = speech_stft.angle()
-        speech = t.stack((speech_stft.abs(), speech_stft.angle()))
+        s_mag = speech_stft.abs().log() # Magnitude
+        s_mag[s_mag.isinf()] = self.eps
+        # Normalize to [-1,1]
+        s_mag = s_mag - s_mag.min()
+        s_mag = s_mag / s_mag.max() / 2 - 1
+
+        speech = t.stack((s_mag, speech_stft.angle()))
         
         rir = t.nn.functional.pad( # pad the RIR to 2s if shorter
             rir,
@@ -126,6 +141,7 @@ class DareDataset(Dataset):
         
         #return self.reverb_speech[idx,:,:,:], self.speech[idx,:,:,:]
         return reverb_speech, speech, rir
+        
 
 def DareDataloader(type="train"):
     return DataLoader(
