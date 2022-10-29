@@ -6,8 +6,8 @@ from utils import getConfig
 def main():
     # ===========================================================
     # PyTorch Lightning Models
-    #autoencoder = LitAutoEncoder()
-    unet = ErnstUnet()
+    #autoencoder = LitAutoEncoder(getConfig()['learning_rate'])
+    unet = ErnstUnet(getConfig()['learning_rate'])
 
     # Data Loaders
     train_loader = DareDataloader("train")
@@ -16,15 +16,14 @@ def main():
 
     # PyTorch Lightning Train
     trainer = pl.Trainer(
-        limit_train_batches = getConfig()['train_batches'],
-        limit_val_batches   = getConfig()['val_batches'],
-        limit_test_batches  = getConfig()['test_batches'],
-        max_epochs          = getConfig()['max_epochs'],
-        log_every_n_steps   = getConfig()['log_every_n_steps'],
-        accelerator         = getConfig()['accelerator'],
-        devices             = getConfig()['devices'],
-        strategy            = getConfig()['strategy'],
-        profiler="simple"
+        limit_train_batches    = getConfig()['train_batches'],
+        limit_val_batches      = getConfig()['val_batches'],
+        limit_test_batches     = getConfig()['test_batches'],
+        max_epochs             = getConfig()['max_epochs'],
+        log_every_n_steps      = getConfig()['log_every_n_steps'],
+        accelerator            = getConfig()['accelerator'],
+        devices                = getConfig()['devices'],
+        strategy               = getConfig()['strategy']
         )
 
     trainer.fit(
