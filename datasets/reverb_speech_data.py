@@ -104,8 +104,8 @@ class DareDataset(Dataset):
             )
         #self.reverb_speech[idx,:,:,0] = reverb_speech_stft.abs()
         #self.reverb_speech[idx,:,:,1] = reverb_speech_stft.angle()
-        #reverb_speech = t.stack((reverb_speech_stft.abs(), reverb_speech_stft.angle()))
-        reverb_speech = reverb_speech_stft.abs()
+        reverb_speech = t.stack((reverb_speech_stft.abs(), reverb_speech_stft.angle()))
+        
         speech_stft = t.stft(
             speech,
             n_fft=self.nfft,
