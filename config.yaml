@@ -1,7 +1,7 @@
 datasets_path: C:\Datasets
 random_seed: 230
 
-learning_rate: 0.00001
+learning_rate: 0.001
 
 batch_size: 2
 train_batches: 10
