@@ -139,6 +139,13 @@ class DareDataset(Dataset):
             mode="constant", value=0
         )
         
+        rirNormLogSpace = True
+        if rirNormLogSpace:
+            rir = t.log10(0.999*t.abs(rir)/t.max(t.abs(rir)))
+            rir[rir < -80] = -80
+            rir = rir - rir.min()
+            rir = rir / rir.max() / 2 - 1
+
         #return self.reverb_speech[idx,:,:,:], self.speech[idx,:,:,:]
         return reverb_speech, speech, rir
         

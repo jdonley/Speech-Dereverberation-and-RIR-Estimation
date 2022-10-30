@@ -274,7 +274,9 @@ class Unet_Speech_RIR(pl.LightningModule):
         r8Out = self.rir8(t.cat((r7Out, c1Out), dim=1)) # (256 x 256 x 1)
         r9Out = self.rir9(r8Out) # 65536 x 1
 
-        loss   = nn.functional.mse_loss(d8Out, y) + nn.functional.mse_loss(r9Out[:, 0:32000], z)
+        #loss   = nn.functional.mse_loss(d8Out, y) + nn.functional.mse_loss(r9Out[:, 0:32000], z)
+        loss   = nn.functional.mse_loss(r9Out[:, 0:32000], z)
+
         #if batch_idx==0 or batch_idx==1000:
         import matplotlib.pyplot as plt
         if batch_idx == 9:
