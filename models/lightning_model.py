@@ -90,8 +90,40 @@ class ErnstUnet(pl.LightningModule):
         x, y, z = batch # reverberant speech, clean speech, RIR (RIR not used in this base UNet model)
         x = x[:,[0],:,:]
         y = y[:,[0],:,:]
+        
+        y_hat = self.predict(x)
+        loss   = nn.functional.mse_loss(y_hat, y)
+        
+        self.log("train_loss", loss)
+        return loss
 
-        # each x = (256 x 256 x 1)
+    def validation_step(self, batch, batch_idx):
+        # validation_step defines the validation loop.
+        # it is independent of forward
+        x, y, z = batch # reverberant speech, clean speech, RIR (RIR not used in this base UNet model)
+        x = x[:,[0],:,:]
+        y = y[:,[0],:,:]
+        
+        y_hat = self.predict(x)
+        loss   = nn.functional.mse_loss(y_hat, y)
+        
+        self.log("val_loss", loss)
+        return loss
+
+    def test_step(self, batch, batch_idx):
+        # test_step defines the test loop.
+        # it is independent of forward
+        x, y, z = batch # reverberant speech, clean speech, RIR (RIR not used in this base UNet model)
+        x = x[:,[0],:,:]
+        y = y[:,[0],:,:]
+        
+        y_hat = self.predict(x)
+        loss   = nn.functional.mse_loss(y_hat, y)
+        
+        self.log("test_loss", loss)
+        return loss
+
+    def predict(self, x):
         c1Out = self.conv1(x)     # (128 x 128 x 64)
         c2Out = self.conv2(c1Out) # (64 x 64 x 128)
         c3Out = self.conv3(c2Out) # (32 x 32 x 256)
@@ -109,27 +141,11 @@ class ErnstUnet(pl.LightningModule):
         d6Out = self.deconv6(t.cat((d5Out, c3Out), dim=1)) # (64 x 64 x 256)
         d7Out = self.deconv7(t.cat((d6Out, c2Out), dim=1)) # (128 x 128 x 128)
         d8Out = self.deconv8(t.cat((d7Out, c1Out), dim=1)) # (256 x 256 x 1)
+        return d8Out
 
-        loss   = nn.functional.mse_loss(d8Out, y)
-        #if batch_idx==0 or batch_idx==1000:
-        import matplotlib.pyplot as plt
-        if batch_idx == 9:
-        #    for i in range(2):
-        #        plt.imshow(x[i,0,:,:].squeeze().to('cpu').numpy())
-        #        plt.show()
-        #        plt.imshow(y[i,0,:,:].squeeze().to('cpu').numpy())
-        #        plt.show()
-            fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
-            ax1.imshow(x[0,0,:,:].squeeze().detach().to('cpu').numpy())
-            ax2.imshow(y[0,0,:,:].squeeze().detach().to('cpu').numpy())
-            x_hat = d8Out[0,0,:,:].squeeze().detach().to('cpu').numpy()
-            ax3.imshow(x_hat,vmin=x_hat.min(), vmax=x_hat.max())
-            plt.show(block=False)
-            plt.pause(1)
-            plt.close()
-        #        print(y[i,0,:,:].squeeze().detach().to('cpu').numpy())
-        #        print(d8Out[i,0,:,:].squeeze().detach().to('cpu').numpy())
-        # Logging to TensorBoard by default
+    def configure_optimizers(self):
+        optimizer = optim.Adam(self.parameters(), lr=self.learning_rate)
+        return optimizer
         self.log("train_loss", loss)
         return loss
 
