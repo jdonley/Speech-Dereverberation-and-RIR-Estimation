@@ -1,4 +1,4 @@
-from models.lightning_model import ErnstUnet, LitAutoEncoder, Unet_Speech_RIR
+from models.lightning_model import ErnstUnet, LitAutoEncoder, Unet_Speech_RIR, Unet_Speech_RIR_2
 from datasets.reverb_speech_data import DareDataloader
 import pytorch_lightning as pl
 from utils import getConfig
@@ -7,8 +7,9 @@ def main():
     # ===========================================================
     # PyTorch Lightning Models
     #autoencoder = LitAutoEncoder(getConfig()['learning_rate'])
-    unet = ErnstUnet(getConfig()['learning_rate'])
-    unet = Unet_Speech_RIR(getConfig()['learning_rate'])
+    #unet = ErnstUnet(getConfig()['learning_rate'])
+    #unet = Unet_Speech_RIR(getConfig()['learning_rate'])
+    unet = Unet_Speech_RIR_2(getConfig()['learning_rate'])
 
 
     # Data Loaders

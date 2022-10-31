@@ -139,7 +139,7 @@ class DareDataset(Dataset):
             mode="constant", value=0
         )
         
-        rirNormLogSpace = True
+        rirNormLogSpace = False
         if rirNormLogSpace:
             rir = t.log10(0.999*t.abs(rir)/t.max(t.abs(rir)))
             rir[rir < -80] = -80
