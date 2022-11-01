@@ -12,11 +12,11 @@ We'll use Miniconda to create a virtual environment from which the project can b
     - Install dependencies
 
 ```
-conda update conda
-conda create -n SpeechDARE
+conda update -y conda
+conda create -y -n SpeechDARE
 conda activate SpeechDARE
 conda install -y python=3.8 anaconda
-conda install -y pytorch pytorch-lightning torchvision torchaudio cudatoolkit=11.6 numpy pyyaml matplotlib librosa -c pytorch -c conda-forge
+conda install -y pytorch pytorch-lightning torchvision torchaudio cudatoolkit=11.6 numpy pyyaml matplotlib librosa -c pytorch -c nvidia
 ```
 
 Check that the GPU can be used by PyTorch:
