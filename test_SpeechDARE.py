@@ -1,18 +1,17 @@
 from models.lightning_model import *
-#from datasets.reverb_speech_data import DareDataloader
+#from datasets.reverb_speech_data import DareDataModule
 #import pytorch_lightning as pl
 #from utils import getTestConfig
 
 def dummy_flow():
     # ===========================================================
     # PyTorch Lightning Models
-    autoencoder = LitAutoEncoder()
-    unet = ErnstUnet()
+    model = LitAutoEncoder()
+    model = ErnstUnet()
+    model = SpeechDAREUnet_v1()
 
-    # Data Loaders
-    #train_loader = DareDataloader("train")
-    #val_loader   = DareDataloader("val")
-    #test_loader  = DareDataloader("test")
+    # Data Module
+    #data_module = DareDataModule()
 
     # PyTorch Lightning Train
     #trainer = pl.Trainer(
@@ -27,16 +26,15 @@ def dummy_flow():
     #    )
 
     #trainer.fit(
-    #    model=autoencoder,
-    #    train_dataloaders=train_loader,
-    #    val_dataloaders=val_loader
+    #    model=model,
+    #    datamodule=data_module
     #    )
 
     # ===========================================================
     # PyTorch Lightning Test
     #trainer.test(
-    #    model=autoencoder,
-    #    dataloaders=test_loader,
+    #    model=model,
+    #    datamodule=data_module
     #    ckpt_path="best"
     #    )
     
