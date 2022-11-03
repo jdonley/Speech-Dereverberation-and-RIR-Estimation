@@ -36,7 +36,7 @@ class DareDataset(Dataset):
             orig_freq=self.rir_dataset.samplerate,
             new_freq=self.samplerate)
         self.resampler_kernel = copy.deepcopy(self.resampler.kernel) # For some reason, this resampler kernel turns to all zeros at hte getitem() call so we save it here and apply it again later separately.
-        self.resampler.kernel = copy.deepcopy(self.resampler_kernel).to(device)
+        #self.resampler.kernel = copy.deepcopy(self.resampler_kernel).to(device)
 
         #self.reverb_speech = np.empty((
         #    self.num_speech_samples * len(self.rir_dataset),
@@ -141,7 +141,6 @@ class DareDataset(Dataset):
             
         #return self.reverb_speech[idx,:,:,:], self.speech[idx,:,:,:]
         return reverb_speech, speech, rir
-        
 
 def DareDataloader(type="train"):
     return DataLoader(
