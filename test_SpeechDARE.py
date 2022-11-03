@@ -1,30 +1,38 @@
 from models.lightning_model import *
-#from datasets.reverb_speech_data import DareDataloader
-#import pytorch_lightning as pl
-#from utils import getTestConfig
+from datasets.reverb_speech_data import DareDataModule
+from pytorch_lightning.callbacks import ModelCheckpoint
+import pytorch_lightning as pl
+from utils import getConfig
 
 def dummy_flow():
     # ===========================================================
     # PyTorch Lightning Models
-    autoencoder = LitAutoEncoder()
-    unet = ErnstUnet()
+    model = LitAutoEncoder()
+    model = ErnstUnet()
+    model = SpeechDAREUnet_v1()
 
-    # Data Loaders
-    #train_loader = DareDataloader("train")
-    #val_loader   = DareDataloader("val")
-    #test_loader  = DareDataloader("test")
+    # Data Module
+    data_module = DareDataModule()
+
+    # Checkpoints
+    checkpoint_callback = ModelCheckpoint(
+        monitor="val_loss",
+        dirpath=getConfig()['checkpoint_dirpath'],
+        filename=model.name+"-{epoch:02d}-{val_loss:.2f}",
+    )
 
     # PyTorch Lightning Train
-    #trainer = pl.Trainer(
-    #    limit_train_batches = getTestConfig()['train_batches'],
-    #    limit_val_batches   = getTestConfig()['val_batches'],
-    #    limit_test_batches  = getTestConfig()['test_batches'],
-    #    max_epochs          = getTestConfig()['max_epochs'],
-    #    log_every_n_steps   = getTestConfig()['log_every_n_steps'],
-    #    accelerator         = getTestConfig()['accelerator'],
-    #    devices             = getTestConfig()['devices'],
-    #    strategy            = getTestConfig()['strategy']
-    #    )
+    trainer = pl.Trainer(
+        limit_train_batches    = getConfig()['train_batches'],
+        limit_val_batches      = getConfig()['val_batches'],
+        limit_test_batches     = getConfig()['test_batches'],
+        max_epochs             = getConfig()['max_epochs'],
+        log_every_n_steps      = getConfig()['log_every_n_steps'],
+        accelerator            = getConfig()['accelerator'],
+        devices                = getConfig()['devices'],
+        strategy               = getConfig()['strategy'],
+        callbacks=[checkpoint_callback]
+        )
 
     #trainer.fit(
     #    model=autoencoder,
