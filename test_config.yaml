@@ -1,17 +1,22 @@
 datasets_path: /home/runner/
 random_seed: 230
 
+learning_rate: 0.001
+
 batch_size: 1
 train_batches: 1
 val_batches: 1
 test_batches: 1
 max_epochs: 1
+shuffle: True
 
 log_every_n_steps: 1
+checkpoint_dirpath: /home/runner/checkpoints
 
 accelerator: cpu
 devices: 1
 strategy: dp
 
 num_workers: 1
-persistent_workers: False
+pin_memory: False
+persistent_workers: True
