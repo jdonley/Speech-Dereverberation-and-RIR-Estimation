@@ -1,18 +1,35 @@
-from models.lightning_model import ErnstUnet, LitAutoEncoder
-from datasets.reverb_speech_data import DareDataloader
+import os
+os.environ["PL_TORCH_DISTRIBUTED_BACKEND"] = "gloo"
+
+from models.lightning_model import SpeechDAREUnet_v1, ErnstUnet, LitAutoEncoder
+from datasets.reverb_speech_data import DareDataModule
+import torch as t
 import pytorch_lightning as pl
+from pytorch_lightning.callbacks import ModelCheckpoint
 from utils import getConfig
+import random
+import numpy as np
+
+random.seed(   getConfig()['random_seed'])
+np.random.seed(getConfig()['random_seed'])
+t.manual_seed( getConfig()['random_seed'])
 
 def main():
     # ===========================================================
     # PyTorch Lightning Models
-    #autoencoder = LitAutoEncoder(getConfig()['learning_rate'])
-    unet = ErnstUnet(getConfig()['learning_rate'])
+    #model = LitAutoEncoder(getConfig()['learning_rate'])
+    #model = ErnstUnet(getConfig()['learning_rate'])
+    model = SpeechDAREUnet_v1(getConfig()['learning_rate'])
 
-    # Data Loaders
-    train_loader = DareDataloader("train")
-    val_loader   = DareDataloader("val")
-    test_loader  = DareDataloader("test")
+    # Data Module
+    data_module = DareDataModule()
+
+    # Checkpoints
+    checkpoint_callback = ModelCheckpoint(
+        monitor="val_loss",
+        dirpath=getConfig()['checkpoint_dirpath'],
+        filename=model.name+"-{epoch:02d}-{val_loss:.2f}",
+    )
 
     # PyTorch Lightning Train
     trainer = pl.Trainer(
@@ -23,26 +40,24 @@ def main():
         log_every_n_steps      = getConfig()['log_every_n_steps'],
         accelerator            = getConfig()['accelerator'],
         devices                = getConfig()['devices'],
-        strategy               = getConfig()['strategy']
+        strategy               = getConfig()['strategy'],
+        callbacks=[checkpoint_callback]
         )
 
     trainer.fit(
-        #model=autoencoder,
-        model=unet,
-        train_dataloaders=train_loader,
-        val_dataloaders=val_loader
+        model=model,
+        datamodule=data_module
         )
 
     # ===========================================================
     # PyTorch Lightning Test
     trainer.test(
-        #model=autoencoder,
-        model=unet,
-        dataloaders=test_loader,
+        model=model,
+        datamodule=data_module,
         ckpt_path="best"
         )
     
     return True
 
-if __name__ == "__main__":
-        main()
+if __name__ == "__main__":    
+    main()

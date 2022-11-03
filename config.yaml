@@ -1,19 +1,21 @@
-datasets_path: C:\Datasets
+datasets_path: /mnt/c/Datasets
 random_seed: 230
 
 learning_rate: 0.001
 
-batch_size: 2
+batch_size: 4
 train_batches: 10
 val_batches: 2
 test_batches: 2
-max_epochs: 1000
+max_epochs: 10
 
 log_every_n_steps: 10
+checkpoint_dirpath: /mnt/c/SpeechDARE/checkpoints
 
 accelerator: gpu
 devices: 1
-strategy: dp
+strategy: ddp_spawn
 
-num_workers: 0
-persistent_workers: False
+num_workers: 1
+pin_memory: False
+persistent_workers: True

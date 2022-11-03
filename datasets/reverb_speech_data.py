@@ -1,17 +1,17 @@
 import torch as t
 import torchaudio as ta
 from torch.utils.data import Dataset, DataLoader
+from pytorch_lightning import LightningDataModule
 from utils import *
-from scipy import signal
 from utils import getConfig
 from datasets.speech_data import LibriSpeechDataset
 from datasets.rir_data import MitIrSurveyDataset
-import librosa
-import numpy as np
+from torch.utils.data.dataloader import default_collate as torch_collate
+import copy
 
 class DareDataset(Dataset):
     def __init__(self, type="train", split_train_val_test_p=[80,10,10], device='cuda'):
-        
+
         self.type = type
         self.split_train_val_test_p = split_train_val_test_p
         self.device = device
@@ -35,8 +35,8 @@ class DareDataset(Dataset):
         self.resampler = ta.transforms.Resample(
             orig_freq=self.rir_dataset.samplerate,
             new_freq=self.samplerate)
-        self.resampler_kernel = self.resampler.kernel # For some reason, this resampler kernel turns to all zeros at hte getitem() call so we save it here and apply it again later separately.
-        self.resampler.kernel = self.resampler_kernel.to(device)
+        self.resampler_kernel = copy.deepcopy(self.resampler.kernel) # For some reason, this resampler kernel turns to all zeros at hte getitem() call so we save it here and apply it again later separately.
+        self.resampler.kernel = copy.deepcopy(self.resampler_kernel).to(device)
 
         #self.reverb_speech = np.empty((
         #    self.num_speech_samples * len(self.rir_dataset),
@@ -138,7 +138,7 @@ class DareDataset(Dataset):
             pad=(0, self.rir_duration - len(rir)),
             mode="constant", value=0
         )
-        
+            
         #return self.reverb_speech[idx,:,:,:], self.speech[idx,:,:,:]
         return reverb_speech, speech, rir
         
@@ -148,4 +148,15 @@ def DareDataloader(type="train"):
         DareDataset(type),
         batch_size =getConfig()['batch_size'],
         num_workers=getConfig()['num_workers'],
+        pin_memory=getConfig()['pin_memory'],
         persistent_workers=getConfig()['persistent_workers'])
+
+class DareDataModule(LightningDataModule):
+    def __init__(self):
+        super().__init__()
+    def train_dataloader(self):
+        return DareDataloader(type="train")
+    def val_dataloader(self):
+        return DareDataloader(type="val")
+    def test_dataloader(self):
+        return DareDataloader(type="test")

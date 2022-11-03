@@ -172,7 +172,16 @@ class SpeechDAREUnet_v1(pl.LightningModule):
         self.add_module("deconv3", nn.Sequential(nn.ConvTranspose2d(256,  64, k, stride=s, padding=k//2, output_padding=s-1), nn.BatchNorm2d(64),  nn.ReLU()))
         self.add_module("deconv4", nn.Sequential(nn.ConvTranspose2d(128,   1, k, stride=s, padding=k//2, output_padding=s-1), nn.Tanh()))
     
+        #a = self.conv1.state_dict()
+        #a['0.weight'][0][0][0] 
+        #print(a['0.weight'][0][0][0])
+        #print(a['0.weight'].device)
+
     def training_step(self, batch, batch_idx):
+        #if not self.has_init:
+            #self.init(learning_rate=self.learning_rate)
+            #self.to(batch[0].device.type)
+            #self.has_init = True
         
         # training_step defines the train loop.
         # it is independent of forward
@@ -180,7 +189,33 @@ class SpeechDAREUnet_v1(pl.LightningModule):
         x = x[:,[0],:,:]
         y = y[:,[0],:,:]
 
+        #if t.all(x == 0):
+        #    print("WTF!?!?!?")
+            #x = t.randn(x.shape).to(x.device)
+
+        #if t.all(y == 0):
+        #    print("WTF AGAIN!?!?!?")
+            #y = t.randn(y.shape).to(y.device)
+
+        #if self.conv1.state_dict()['0.weight'][0][0][0][0] == 0:
+            #print("zeros again!?")
+            
+            #self.init()
+            #self.to('cuda')
+        
+            #self.train(True)
+            #self.unfreeze()
+
+
+
+        #print(self.conv1.state_dict()['0.weight'][0][0][0])
+        #print(self.conv2.state_dict()['0.weight'][0][0][0])
+
         y_hat = self.predict(x)
+
+        #print(x[0,0,100:105,100])
+        #print(y[0,0,100:105,100])
+        #print(y_hat[0,0,100:105,100])        
 
         loss   = nn.functional.mse_loss(y_hat, y)
         

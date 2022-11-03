@@ -31,3 +31,5 @@ This example assumes that
 suitable [cuDNN](https://developer.nvidia.com/rdp/cudnn-archive) package. See the
 [available Conda PyTorch install files](https://anaconda.org/pytorch/pytorch/files) for compatible
 CUDA Toolkit - cuDNN combinations. Use `nvcc --version` to determine the CUDA Toolkit version.
+
+If using Windows, a good alternative can be to use WSL2. The setup instructions above work *after* installing WSL2 and NVIDIA CUDA with the [instructions here](https://learn.microsoft.com/en-us/windows/ai/directml/gpu-cuda-in-wsl).
