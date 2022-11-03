@@ -35,16 +35,15 @@ def dummy_flow():
         )
 
     #trainer.fit(
-    #    model=autoencoder,
-    #    train_dataloaders=train_loader,
-    #    val_dataloaders=val_loader
+    #    model=model,
+    #    datamodule=data_module
     #    )
 
     # ===========================================================
     # PyTorch Lightning Test
     #trainer.test(
-    #    model=autoencoder,
-    #    dataloaders=test_loader,
+    #    model=model,
+    #    datamodule=data_module
     #    ckpt_path="best"
     #    )
     
