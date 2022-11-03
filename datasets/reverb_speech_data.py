@@ -146,7 +146,8 @@ class DareDataset(Dataset):
 def DareDataloader(type="train"):
     return DataLoader(
         DareDataset(type),
-        batch_size =getConfig()['batch_size'],
+        batch_size=getConfig()['batch_size'],
+        shuffle=getConfig()['shuffle'],
         num_workers=getConfig()['num_workers'],
         pin_memory=getConfig()['pin_memory'],
         persistent_workers=getConfig()['persistent_workers'])
