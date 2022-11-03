@@ -11,7 +11,6 @@ import zipfile
 from tqdm import tqdm
 import shutil
 import copy
-from torchdata.datapipes.iter import IoPathFileLister
 
 
 class MitIrSurveyDataset(Dataset):
