@@ -16,7 +16,9 @@ conda update -y conda
 conda create -y -n SpeechDARE
 conda activate SpeechDARE
 conda install -y python=3.8 anaconda
-conda install -y pytorch pytorch-lightning torchvision torchaudio cudatoolkit=11.6 numpy pyyaml matplotlib librosa -c pytorch -c nvidia
+conda install -y pytorch torchvision torchaudio pytorch-cuda=11.6 -c pytorch -c nvidia
+conda install -y pytorch-lightning -c conda-forge
+conda install -y numpy pyyaml matplotlib librosa -c conda-forge
 ```
 
 Check that the GPU can be used by PyTorch:
