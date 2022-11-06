@@ -30,3 +30,13 @@ Trainer:
   accelerator: cpu
   devices: 1
   profiler: null
+
+RichProgressBarTheme:
+  description: green_yellow
+  progress_bar: green1
+  progress_bar_finished: green1
+  progress_bar_pulse: '#6206E0'
+  batch_progress: green_yellow
+  time: grey82
+  processing_speed: grey82
+  metrics: grey82

@@ -7,6 +7,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.strategies.ddp import DDPStrategy
 import pytorch_lightning as pl
 from utils.utils import getTestConfig
+from utils.progress_bar import getProgressBar
 
 def dummy_flow():
     cfg = getTestConfig()
@@ -32,7 +33,7 @@ def dummy_flow():
     trainer = pl.Trainer(
         **cfg['Trainer'],
         strategy=strategy,
-        callbacks=[ckpt_callback]
+        callbacks=[ckpt_callback,getProgressBar(cfg)]
         )
 
     #trainer.fit(

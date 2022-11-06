@@ -6,6 +6,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.strategies.ddp import DDPStrategy
 from utils.utils import getConfig
+from utils.progress_bar import getProgressBar
 import random
 import numpy as np
 
@@ -37,7 +38,7 @@ def main(args):
     trainer = pl.Trainer(
         **cfg['Trainer'],
         strategy=strategy,
-        callbacks=[ckpt_callback]
+        callbacks=[ckpt_callback,getProgressBar(cfg)]
         )
 
     trainer.fit(

@@ -187,7 +187,8 @@ class SpeechDAREUnet_v1(pl.LightningModule):
         y_hat = self.predict(x)
         loss   = nn.functional.mse_loss(y_hat, y)
         
-        self.log("train_loss", loss)
+        self.log("loss", {'train': loss })
+        self.log("train_loss", loss )
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -200,7 +201,8 @@ class SpeechDAREUnet_v1(pl.LightningModule):
         y_hat = self.predict(x)
         loss   = nn.functional.mse_loss(y_hat, y)
         
-        self.log("val_loss", loss)
+        self.log("loss", {'val': loss })
+        self.log("val_loss", loss )
         return loss
 
     def test_step(self, batch, batch_idx):
@@ -213,7 +215,8 @@ class SpeechDAREUnet_v1(pl.LightningModule):
         y_hat = self.predict(x)
         loss   = nn.functional.mse_loss(y_hat, y)
         
-        self.log("test_loss", loss)
+        self.log("loss", {'test': loss })
+        self.log("test_loss", loss )
         return loss
 
     def predict(self, x):
