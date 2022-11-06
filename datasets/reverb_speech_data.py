@@ -48,7 +48,7 @@ class DareDataset(Dataset):
             target_sr=self.samplerate,
             res_type='soxr_hq')
 
-        reverb_speech = signal.convolve(speech, rir)
+        reverb_speech = signal.convolve(speech, rir, method='fft')
 
         reverb_speech = np.pad(
             reverb_speech,
