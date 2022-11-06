@@ -26,9 +26,9 @@ def main():
 
     # Checkpoints
     checkpoint_callback = ModelCheckpoint(
-        monitor="val_loss",
-        dirpath=getConfig()['checkpoint_dirpath'],
-        filename=model.name+"-{epoch:02d}-{val_loss:.2f}",
+        monitor  = "val_loss",
+        dirpath  = getConfig()['checkpoint_dirpath'],
+        filename = model.name + "-{epoch:02d}-{val_loss:.2f}",
     )
 
     # PyTorch Lightning Train
@@ -41,20 +41,21 @@ def main():
         accelerator            = getConfig()['accelerator'],
         devices                = getConfig()['devices'],
         strategy               = getConfig()['strategy'],
-        callbacks=[checkpoint_callback]
+        callbacks              = [checkpoint_callback],
+        profiler               = "simple"
         )
 
     trainer.fit(
-        model=model,
-        datamodule=data_module
+        model      = model,
+        datamodule = data_module
         )
 
     # ===========================================================
     # PyTorch Lightning Test
     trainer.test(
-        model=model,
-        datamodule=data_module,
-        ckpt_path="best"
+        model      = model,
+        datamodule = data_module,
+        ckpt_path  = "best"
         )
     
     return True
