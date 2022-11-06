@@ -4,6 +4,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from models.lightning_model import *
 from datasets.reverb_speech_data import DareDataModule
 from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.strategies.ddp import DDPStrategy
 import pytorch_lightning as pl
 from utils.utils import getTestConfig
 
@@ -24,8 +25,15 @@ def dummy_flow():
         filename = model.name + "-{epoch:02d}-{val_loss:.2f}",
     )
 
+    # Strategy
+    strategy = DDPStrategy(**cfg['DDPStrategy'])
+
     # PyTorch Lightning Train
-    trainer = pl.Trainer(**cfg['Trainer'], callbacks=[ckpt_callback])
+    trainer = pl.Trainer(
+        **cfg['Trainer'],
+        strategy=strategy,
+        callbacks=[ckpt_callback]
+        )
 
     #trainer.fit(
     #    model=model,

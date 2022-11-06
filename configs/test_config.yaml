@@ -17,6 +17,10 @@ ModelCheckpoint:
   monitor: val_loss
   dirpath: /home/runner/checkpoints
 
+DDPStrategy:
+  process_group_backend: gloo
+  find_unused_parameters: False
+
 Trainer:
   limit_train_batches: 1
   limit_val_batches: 1
@@ -25,5 +29,4 @@ Trainer:
   log_every_n_steps: 1
   accelerator: cpu
   devices: 1
-  strategy: ddp_find_unused_parameters_false
   profiler: null
