@@ -3,11 +3,11 @@ import pytorch_lightning as pl
 import torch as t
 from utils.utils import getConfig
 
-def getModel(model_name="SpeechDAREUnet_v1",config_path=None):
-    cfg = getConfig(config_path) if config_path is not None else getConfig()
-    if   model_name == "SpeechDAREUnet_v1": model = SpeechDAREUnet_v1(cfg['learning_rate'])
-    elif model_name == "ErnstUnet":         model = ErnstUnet        (cfg['learning_rate'])
+def getModel(model_name=None,learning_rate=1e-3):
+    if   model_name == "SpeechDAREUnet_v1": model = SpeechDAREUnet_v1(learning_rate=learning_rate)
+    elif model_name == "ErnstUnet":         model = ErnstUnet        (learning_rate=learning_rate)
     else: raise Exception("Unknown model name.")
+    
     return model
 
 # define the LightningModule

@@ -106,15 +106,9 @@ class DareDataset(Dataset):
 
 def DareDataloader(config_path,type="train"):
     cfg = getConfig(config_path)
-    return DataLoader(
-        DareDataset(config_path,type),
-        batch_size         = cfg['batch_size'],
-        shuffle            = cfg['shuffle'] if type=="train" else False,
-        drop_last          = cfg['drop_last'],
-        num_workers        = cfg['num_workers'],
-        pin_memory         = cfg['pin_memory'],
-        persistent_workers = cfg['persistent_workers']
-        )
+    if type is not "train":
+        cfg['DataLoader']['shuffle'] = False
+    return DataLoader(DareDataset(config_path,type),**cfg['DataLoader'])
 
 class DareDataModule(LightningDataModule):
     def __init__(self,config_path):

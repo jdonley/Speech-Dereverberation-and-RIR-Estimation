@@ -16,38 +16,27 @@ def dummy_flow():
     model = SpeechDAREUnet_v1()
 
     # Data Module
-    data_module = DareDataModule(config_path)
+    datamodule = DareDataModule(config_path=config_path)
 
     # Checkpoints
-    checkpoint_callback = ModelCheckpoint(
-        monitor="val_loss",
-        dirpath=cfg['checkpoint_dirpath'],
-        filename=model.name+"-{epoch:02d}-{val_loss:.2f}",
+    ckpt_callback = ModelCheckpoint(
+        **cfg['ModelCheckpoint'],
+        filename = model.name + "-{epoch:02d}-{val_loss:.2f}",
     )
 
     # PyTorch Lightning Train
-    trainer = pl.Trainer(
-        limit_train_batches    = cfg['train_batches'],
-        limit_val_batches      = cfg['val_batches'],
-        limit_test_batches     = cfg['test_batches'],
-        max_epochs             = cfg['max_epochs'],
-        log_every_n_steps      = cfg['log_every_n_steps'],
-        accelerator            = cfg['accelerator'],
-        devices                = cfg['devices'],
-        strategy               = cfg['strategy'],
-        callbacks=[checkpoint_callback]
-        )
+    trainer = pl.Trainer(**cfg['Trainer'], callbacks=[ckpt_callback])
 
     #trainer.fit(
     #    model=model,
-    #    datamodule=data_module
+    #    datamodule=datamodule
     #    )
 
     # ===========================================================
     # PyTorch Lightning Test
     #trainer.test(
     #    model=model,
-    #    datamodule=data_module
+    #    datamodule=datamodule
     #    ckpt_path="best"
     #    )
     
