@@ -21,9 +21,11 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get install libsndfile1
+        sudo apt-get install llvm-7 llvm-7-dev
+        export LLVM_CONFIG=/usr/bin/llvm-config-7
         conda install python=3.8 anaconda
-        conda install pytorch pytorch-lightning torchvision torchaudio cudatoolkit=11.6 numpy pyyaml matplotlib librosa -c pytorch -c conda-forge
-        pip install soxr
+        conda install pytorch pytorch-lightning torchvision torchaudio cudatoolkit=11.6 numpy pyyaml matplotlib -c pytorch -c conda-forge
+        pip install librosa soxr
     - name: Lint with flake8
       run: |
         conda install flake8
