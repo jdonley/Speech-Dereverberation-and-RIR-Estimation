@@ -1,48 +1,60 @@
-from models.lightning_model import ErnstUnet, LitAutoEncoder
-from datasets.reverb_speech_data import DareDataloader
+import os
+os.environ["PL_TORCH_DISTRIBUTED_BACKEND"] = "gloo"
+
+from argparse import ArgumentParser
+from models.lightning_model import getModel
+from datasets.reverb_speech_data import DareDataModule
+import torch as t
 import pytorch_lightning as pl
-from utils import getConfig
+from pytorch_lightning.callbacks import ModelCheckpoint
+from utils.utils import getConfig
+import random
+import numpy as np
 
-def main():
+random.seed(   getConfig()['random_seed'])
+np.random.seed(getConfig()['random_seed'])
+t.manual_seed( getConfig()['random_seed'])
+
+def main(args):
     # ===========================================================
-    # PyTorch Lightning Models
-    #autoencoder = LitAutoEncoder(getConfig()['learning_rate'])
-    unet = ErnstUnet(getConfig()['learning_rate'])
+    # Configuration
+    cfg = getConfig(config_path=args.config_path)
 
-    # Data Loaders
-    train_loader = DareDataloader("train")
-    val_loader   = DareDataloader("val")
-    test_loader  = DareDataloader("test")
+    # PyTorch Lightning Models
+    model = getModel(**cfg['Model'])
+
+    # Data Module
+    datamodule = DareDataModule(config_path=args.config_path)
+
+    # Checkpoints
+    ckpt_callback = ModelCheckpoint(
+        **cfg['ModelCheckpoint'],
+        filename = model.name + "-{epoch:02d}-{val_loss:.2f}",
+    )
 
     # PyTorch Lightning Train
-    trainer = pl.Trainer(
-        limit_train_batches    = getConfig()['train_batches'],
-        limit_val_batches      = getConfig()['val_batches'],
-        limit_test_batches     = getConfig()['test_batches'],
-        max_epochs             = getConfig()['max_epochs'],
-        log_every_n_steps      = getConfig()['log_every_n_steps'],
-        accelerator            = getConfig()['accelerator'],
-        devices                = getConfig()['devices'],
-        strategy               = getConfig()['strategy']
-        )
+    trainer = pl.Trainer(**cfg['Trainer'], callbacks=[ckpt_callback])
 
     trainer.fit(
-        #model=autoencoder,
-        model=unet,
-        train_dataloaders=train_loader,
-        val_dataloaders=val_loader
+        model      = model,
+        datamodule = datamodule
         )
 
     # ===========================================================
     # PyTorch Lightning Test
     trainer.test(
-        #model=autoencoder,
-        model=unet,
-        dataloaders=test_loader,
-        ckpt_path="best"
+        model      = model,
+        datamodule = datamodule,
+        ckpt_path  = "best"
         )
     
     return True
 
 if __name__ == "__main__":
-        main()
+    parser = ArgumentParser()
+    
+    parser.add_argument("--config_path", type=str, default="config.yaml", 
+        help="A full or relative path to a configuration yaml file. (default: config.yaml)")
+        
+    args = parser.parse_args()
+    main(args)

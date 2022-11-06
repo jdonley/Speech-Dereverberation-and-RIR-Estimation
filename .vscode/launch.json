@@ -9,6 +9,9 @@
             "type": "python",
             "request": "launch",
             "program": "${file}",
+            "args": [
+                "--config_path", "./configs/config_win.yaml"
+            ],
             "console": "integratedTerminal",
             "justMyCode": true
         }
