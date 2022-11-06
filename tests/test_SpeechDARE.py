@@ -8,7 +8,7 @@ import pytorch_lightning as pl
 from utils.utils import getTestConfig
 
 def dummy_flow():
-    cfg, config_path = getTestConfig()
+    cfg = getTestConfig()
     # ===========================================================
     # PyTorch Lightning Models
     model = LitAutoEncoder()
@@ -16,7 +16,7 @@ def dummy_flow():
     model = SpeechDAREUnet_v1()
 
     # Data Module
-    datamodule = DareDataModule(config_path=config_path)
+    datamodule = DareDataModule(config=cfg)
 
     # Checkpoints
     ckpt_callback = ModelCheckpoint(

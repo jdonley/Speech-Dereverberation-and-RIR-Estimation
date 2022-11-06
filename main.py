@@ -24,7 +24,7 @@ def main(args):
     model = getModel(**cfg['Model'])
 
     # Data Module
-    datamodule = DareDataModule(config_path=args.config_path)
+    datamodule = DareDataModule(config=cfg)
 
     # Checkpoints
     ckpt_callback = ModelCheckpoint(

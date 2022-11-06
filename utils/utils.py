@@ -10,5 +10,4 @@ def getConfig(config_path="./configs/config.yaml"):
     return config
 
 def getTestConfig():
-    config_path = "./configs/test_config.yaml"
-    return getConfig(config_path), config_path
+    return getConfig("./configs/test_config.yaml")
