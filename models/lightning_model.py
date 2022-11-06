@@ -1,10 +1,14 @@
-from cmath import nan
-import os
-from torch import optim, nn, utils, Tensor
-from torchvision.datasets import MNIST
-from torchvision.transforms import ToTensor
+from torch import optim, nn
 import pytorch_lightning as pl
 import torch as t
+from utils.utils import getConfig
+
+def getModel(model_name="SpeechDAREUnet_v1",config_path=None):
+    cfg = getConfig(config_path) if config_path is not None else getConfig()
+    if   model_name == "SpeechDAREUnet_v1": model = SpeechDAREUnet_v1(cfg['learning_rate'])
+    elif model_name == "ErnstUnet":         model = ErnstUnet        (cfg['learning_rate'])
+    else: raise Exception("Unknown model name.")
+    return model
 
 # define the LightningModule
 class LitAutoEncoder(pl.LightningModule):

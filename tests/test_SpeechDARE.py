@@ -1,11 +1,14 @@
+import sys, os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
 from models.lightning_model import *
 from datasets.reverb_speech_data import DareDataModule
 from pytorch_lightning.callbacks import ModelCheckpoint
 import pytorch_lightning as pl
-from utils import getTestConfig
+from utils.utils import getTestConfig
 
 def dummy_flow():
-    cfg = getTestConfig()
+    cfg, config_path = getTestConfig()
     # ===========================================================
     # PyTorch Lightning Models
     model = LitAutoEncoder()
@@ -13,7 +16,7 @@ def dummy_flow():
     model = SpeechDAREUnet_v1()
 
     # Data Module
-    data_module = DareDataModule()
+    data_module = DareDataModule(config_path)
 
     # Checkpoints
     checkpoint_callback = ModelCheckpoint(

@@ -1,7 +1,6 @@
 from torch.utils.data import Dataset, DataLoader
 from pytorch_lightning import LightningDataModule
-from utils import *
-from utils import getConfig
+from utils.utils import getConfig
 from datasets.speech_data import LibriSpeechDataset
 from datasets.rir_data import MitIrSurveyDataset
 import librosa
@@ -9,14 +8,14 @@ from scipy import signal
 import numpy as np
 
 class DareDataset(Dataset):
-    def __init__(self, type="train", split_train_val_test_p=[80,10,10], device='cuda'):
+    def __init__(self, config_path, type="train", split_train_val_test_p=[80,10,10], device='cuda'):
 
         self.type = type
         self.split_train_val_test_p = split_train_val_test_p
         self.device = device
         
-        self.rir_dataset = MitIrSurveyDataset(type=self.type, device=device)
-        self.speech_dataset = LibriSpeechDataset(type=self.type)
+        self.rir_dataset = MitIrSurveyDataset(config_path, type=self.type, device=device)
+        self.speech_dataset = LibriSpeechDataset(config_path, type=self.type)
 
         self.eps = 10**-32
 
@@ -105,22 +104,25 @@ class DareDataset(Dataset):
             
         return reverb_speech, speech, rir
 
-def DareDataloader(type="train"):
+def DareDataloader(config_path,type="train"):
+    cfg = getConfig(config_path)
     return DataLoader(
-        DareDataset(type),
-        batch_size=getConfig()['batch_size'],
-        shuffle=getConfig()['shuffle'] if type=="train" else False,
-        drop_last=getConfig()['drop_last'],
-        num_workers=getConfig()['num_workers'],
-        pin_memory=getConfig()['pin_memory'],
-        persistent_workers=getConfig()['persistent_workers'])
+        DareDataset(config_path,type),
+        batch_size         = cfg['batch_size'],
+        shuffle            = cfg['shuffle'] if type=="train" else False,
+        drop_last          = cfg['drop_last'],
+        num_workers        = cfg['num_workers'],
+        pin_memory         = cfg['pin_memory'],
+        persistent_workers = cfg['persistent_workers']
+        )
 
 class DareDataModule(LightningDataModule):
-    def __init__(self):
+    def __init__(self,config_path):
         super().__init__()
+        self.config_path = config_path
     def train_dataloader(self):
-        return DareDataloader(type="train")
+        return DareDataloader(type="train",config_path=self.config_path)
     def val_dataloader(self):
-        return DareDataloader(type="val")
+        return DareDataloader(type="val",config_path=self.config_path)
     def test_dataloader(self):
-        return DareDataloader(type="test")
+        return DareDataloader(type="test",config_path=self.config_path)

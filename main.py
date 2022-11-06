@@ -2,12 +2,12 @@ import os
 os.environ["PL_TORCH_DISTRIBUTED_BACKEND"] = "gloo"
 
 from argparse import ArgumentParser
-from models.lightning_model import SpeechDAREUnet_v1, ErnstUnet, LitAutoEncoder
+from models.lightning_model import getModel
 from datasets.reverb_speech_data import DareDataModule
 import torch as t
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
-from utils import getConfig
+from utils.utils import getConfig
 import random
 import numpy as np
 
@@ -21,13 +21,13 @@ def main(args):
     cfg = getConfig(args.config_path)
 
     # PyTorch Lightning Models
-    if args.model_name == "SpeechDAREUnet_v1":
-        model = SpeechDAREUnet_v1(cfg['learning_rate'])
-    elif args.model_name == "ErnstUnet":
-        model = ErnstUnet(cfg['learning_rate'])
+    model = getModel(
+        model_name = args.model_name,
+        config_path = args.config_path
+        )
 
     # Data Module
-    data_module = DareDataModule()
+    data_module = DareDataModule(config_path=args.config_path)
 
     # Checkpoints
     checkpoint_callback = ModelCheckpoint(
@@ -46,8 +46,8 @@ def main(args):
         accelerator            = cfg['accelerator'],
         devices                = cfg['devices'],
         strategy               = cfg['strategy'],
-        callbacks              = [checkpoint_callback],
-        profiler               = "simple"
+        profiler               = cfg['profiler'],
+        callbacks              = [checkpoint_callback]
         )
 
     trainer.fit(
@@ -67,8 +67,10 @@ def main(args):
 
 if __name__ == "__main__":
     parser = ArgumentParser()
+    
     parser.add_argument("--model_name", type=str, default="SpeechDAREUnet_v1", 
         help="SpeechDAREUnet_v1 or ErnstUnet")
+
     parser.add_argument("--config_path", type=str, default="config.yaml", 
         help="A full or relative path to a configuration yaml file. (default: config.yaml)")
         

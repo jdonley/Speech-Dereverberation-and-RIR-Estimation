@@ -1,8 +1,7 @@
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
 from pathlib import Path
-from utils import *
-from utils import getConfig
+from utils.utils import getConfig
 import soundfile as sf
 import glob
 import os
@@ -12,8 +11,9 @@ from tqdm import tqdm
 import shutil
 
 class MitIrSurveyDataset(Dataset):
-    def __init__(self, type="train", split_train_val_test_p=[80,10,10], device='cuda', download=True):
-        self.root_dir = Path(getConfig()['datasets_path'],'MIT_IR_Survey')
+    def __init__(self, config_path, type="train", split_train_val_test_p=[80,10,10], device='cuda', download=True):
+        cfg = getConfig(config_path)
+        self.root_dir = Path(cfg['datasets_path'],'MIT_IR_Survey')
         self.type = type
 
         if download and not os.path.isdir(str(self.root_dir)): # If the path doesn't exist, download the dataset if set to true
@@ -25,7 +25,7 @@ class MitIrSurveyDataset(Dataset):
         self.split_train_val_test_p = np.array(np.int16(split_train_val_test_p))
         self.split_train_val_test = np.int16(np.round( np.array(self.split_train_val_test_p)/100 * self.max_data_len ))
         self.split_edge = np.cumsum(np.concatenate(([0],self.split_train_val_test_p)), axis=0)
-        self.idx_rand = np.random.RandomState(seed=getConfig()['random_seed']).permutation(self.max_data_len)
+        self.idx_rand = np.random.RandomState(seed=cfg['random_seed']).permutation(self.max_data_len)
 
         split = []
         if self.type == "train":
@@ -75,5 +75,5 @@ class MitIrSurveyDataset(Dataset):
 
         return True
 
-def MitIrSurveyDataloader(type="train"):
-    return DataLoader(MitIrSurveyDataset(type))
+def MitIrSurveyDataloader(config_path, type="train"):
+    return DataLoader(MitIrSurveyDataset(config_path, type=type))
