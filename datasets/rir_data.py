@@ -1,5 +1,5 @@
-import torch as t
 from torch.utils.data import Dataset, DataLoader
+import numpy as np
 from pathlib import Path
 from utils import *
 from utils import getConfig
@@ -10,8 +10,6 @@ import requests
 import zipfile
 from tqdm import tqdm
 import shutil
-import copy
-
 
 class MitIrSurveyDataset(Dataset):
     def __init__(self, type="train", split_train_val_test_p=[80,10,10], device='cuda', download=True):
@@ -21,18 +19,13 @@ class MitIrSurveyDataset(Dataset):
         if download and not os.path.isdir(str(self.root_dir)): # If the path doesn't exist, download the dataset if set to true
             self.download_mit_ir_survey(self.root_dir)
 
-        #self.files = glob.glob(str(Path(self.root_dir,"*")))
-        #with open(str(Path(self.root_dir,self.type+".yaml")), 'w') as file:
-        #    yaml.dump(self.files, file)
-
         self.max_data_len = 270 # This is supposed to be 271 but there is an IR missing in the dataset
-
         self.samplerate = 32000
 
-        self.split_train_val_test_p = copy.deepcopy(t.Tensor(split_train_val_test_p).int())
-        self.split_train_val_test = copy.deepcopy(t.Tensor.int(t.round( t.Tensor(self.split_train_val_test_p)/100 * self.max_data_len )))
-        self.split_edge = copy.deepcopy(t.cumsum(t.concat((t.Tensor([0.0]),self.split_train_val_test_p)), dim=0).int())
-        self.idx_rand = copy.deepcopy(t.randperm(self.max_data_len,generator=t.Generator().manual_seed(getConfig()['random_seed'])))
+        self.split_train_val_test_p = np.array(np.int16(split_train_val_test_p))
+        self.split_train_val_test = np.int16(np.round( np.array(self.split_train_val_test_p)/100 * self.max_data_len ))
+        self.split_edge = np.cumsum(np.concatenate(([0],self.split_train_val_test_p)), axis=0)
+        self.idx_rand = np.random.RandomState(seed=getConfig()['random_seed']).permutation(self.max_data_len)
 
         split = []
         if self.type == "train":
@@ -42,36 +35,20 @@ class MitIrSurveyDataset(Dataset):
         elif self.type == "test":
             split = self.idx_rand[self.split_edge[2]:self.split_edge[3]]
 
-        files = []
-        with open(str(Path(self.root_dir,self.type+".yaml")), "r") as dataFiles:
-            try:
-                files = yaml.safe_load(dataFiles)
-            except yaml.YAMLError as exc:
-                print(exc)
+        files = glob.glob(str(Path(self.root_dir,"*")))
         self.split_filenames = [files[i] for i in split]
-        print(self.split_filenames)
         self.device = device
-        
-        max_rir_len = 63971 # max num samples
-        #self.irs = np.empty((len(self.split), max_rir_len))
-        #self.irs[:] = np.nan
-        #self.irs = t.tensor(self.irs, dtype=t.float).to(self.device)
 
     def __len__(self):
         return len(self.split_filenames)
 
     def __getitem__(self, idx):
-        #if t.all(t.isnan(self.irs[idx,:])):
         filename = self.split_filenames[idx]
-        #audio_path = os.path.join(self.audio_dir, filename[0:3], filename + ".ogg")
         audio_data, samplerate = sf.read(filename)
         if samplerate != self.samplerate:
             raise Exception("The samplerate of the audio in the dataset is not 32kHz.")
         
-        #self.irs[idx,:len(audio_data)] = t.tensor(audio_data, dtype=t.float).to(self.device)
-    
-        #return self.irs[idx,:]
-        return t.tensor(audio_data, dtype=t.float).to(self.device)
+        return audio_data
 
     def download_mit_ir_survey(self, local_path):
         url = "https://mcdermottlab.mit.edu/Reverb/IRMAudio/Audio.zip"

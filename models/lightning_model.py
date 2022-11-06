@@ -162,76 +162,36 @@ class SpeechDAREUnet_v1(pl.LightningModule):
         k = 5
         s = 2
         # UNet model from "Speech Dereverberation Using Fully Convolutional Networks," Ernst et al., EUSIPCO 2018
-        self.add_module("conv1", nn.Sequential(nn.Conv2d(  1,  64, k, stride=s, padding=k//2), nn.LeakyReLU(0.2)))
-        self.add_module("conv2", nn.Sequential(nn.Conv2d( 64, 128, k, stride=s, padding=k//2), nn.BatchNorm2d(128), nn.LeakyReLU(0.2)))
-        self.add_module("conv3", nn.Sequential(nn.Conv2d(128, 256, k, stride=s, padding=k//2), nn.BatchNorm2d(256), nn.LeakyReLU(0.2)))
-        self.add_module("conv4", nn.Sequential(nn.Conv2d(256, 256, k, stride=s, padding=k//2), nn.BatchNorm2d(256), nn.ReLU()))
+        self.conv1 = nn.Sequential(nn.Conv2d(  1,  64, k, stride=s, padding=k//2), nn.LeakyReLU(0.2))
+        self.conv2 = nn.Sequential(nn.Conv2d( 64, 128, k, stride=s, padding=k//2), nn.BatchNorm2d(128), nn.LeakyReLU(0.2))
+        self.conv3 = nn.Sequential(nn.Conv2d(128, 256, k, stride=s, padding=k//2), nn.BatchNorm2d(256), nn.LeakyReLU(0.2))
+        self.conv4 = nn.Sequential(nn.Conv2d(256, 256, k, stride=s, padding=k//2), nn.BatchNorm2d(256), nn.ReLU())
         
-        self.add_module("deconv1", nn.Sequential(nn.ConvTranspose2d(256, 256, k, stride=s, padding=k//2, output_padding=s-1), nn.BatchNorm2d(256), nn.Dropout2d(p=0.5), nn.ReLU()))
-        self.add_module("deconv2", nn.Sequential(nn.ConvTranspose2d(512, 128, k, stride=s, padding=k//2, output_padding=s-1), nn.BatchNorm2d(128), nn.Dropout2d(p=0.5), nn.ReLU()))
-        self.add_module("deconv3", nn.Sequential(nn.ConvTranspose2d(256,  64, k, stride=s, padding=k//2, output_padding=s-1), nn.BatchNorm2d(64),  nn.ReLU()))
-        self.add_module("deconv4", nn.Sequential(nn.ConvTranspose2d(128,   1, k, stride=s, padding=k//2, output_padding=s-1), nn.Tanh()))
-    
-        #a = self.conv1.state_dict()
-        #a['0.weight'][0][0][0] 
-        #print(a['0.weight'][0][0][0])
-        #print(a['0.weight'].device)
+        self.deconv1 = nn.Sequential(nn.ConvTranspose2d(256, 256, k, stride=s, padding=k//2, output_padding=s-1), nn.BatchNorm2d(256), nn.Dropout2d(p=0.5), nn.ReLU())
+        self.deconv2 = nn.Sequential(nn.ConvTranspose2d(512, 128, k, stride=s, padding=k//2, output_padding=s-1), nn.BatchNorm2d(128), nn.Dropout2d(p=0.5), nn.ReLU())
+        self.deconv3 = nn.Sequential(nn.ConvTranspose2d(256,  64, k, stride=s, padding=k//2, output_padding=s-1), nn.BatchNorm2d(64),  nn.ReLU())
+        self.deconv4 = nn.Sequential(nn.ConvTranspose2d(128,   1, k, stride=s, padding=k//2, output_padding=s-1), nn.Tanh())
 
     def training_step(self, batch, batch_idx):
-        #if not self.has_init:
-            #self.init(learning_rate=self.learning_rate)
-            #self.to(batch[0].device.type)
-            #self.has_init = True
-        
         # training_step defines the train loop.
         # it is independent of forward
         x, y, z = batch # reverberant speech, clean speech, RIR (RIR not used in this base UNet model)
-        x = x[:,[0],:,:]
-        y = y[:,[0],:,:]
 
-        #if t.all(x == 0):
-        #    print("WTF!?!?!?")
-            #x = t.randn(x.shape).to(x.device)
-
-        #if t.all(y == 0):
-        #    print("WTF AGAIN!?!?!?")
-            #y = t.randn(y.shape).to(y.device)
-
-        #if self.conv1.state_dict()['0.weight'][0][0][0][0] == 0:
-            #print("zeros again!?")
-            
-            #self.init()
-            #self.to('cuda')
-        
-            #self.train(True)
-            #self.unfreeze()
-
-
-
-        #print(self.conv1.state_dict()['0.weight'][0][0][0])
-        #print(self.conv2.state_dict()['0.weight'][0][0][0])
+        x = x[:,[0],:,:].float()
+        y = y[:,[0],:,:].float()
 
         y_hat = self.predict(x)
-
-        #print(x[0,0,100:105,100])
-        #print(y[0,0,100:105,100])
-        #print(y_hat[0,0,100:105,100])        
-
         loss   = nn.functional.mse_loss(y_hat, y)
         
         self.log("train_loss", loss)
         return loss
 
     def validation_step(self, batch, batch_idx):
-        #if not self.has_init:
-            #self.init()
-            #self.to(batch[0].device.type)
-            #self.has_init = True
         # validation_step defines the validation loop.
         # it is independent of forward
         x, y, z = batch # reverberant speech, clean speech, RIR (RIR not used in this base UNet model)
-        x = x[:,[0],:,:]
-        y = y[:,[0],:,:]
+        x = x[:,[0],:,:].float()
+        y = y[:,[0],:,:].float()
         
         y_hat = self.predict(x)
         loss   = nn.functional.mse_loss(y_hat, y)
@@ -243,8 +203,8 @@ class SpeechDAREUnet_v1(pl.LightningModule):
         # test_step defines the test loop.
         # it is independent of forward
         x, y, z = batch # reverberant speech, clean speech, RIR (RIR not used in this base UNet model)
-        x = x[:,[0],:,:]
-        y = y[:,[0],:,:]
+        x = x[:,[0],:,:].float()
+        y = y[:,[0],:,:].float()
         
         y_hat = self.predict(x)
         loss   = nn.functional.mse_loss(y_hat, y)
