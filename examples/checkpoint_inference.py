@@ -4,16 +4,20 @@ sys.path.append(
     os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
 from models.lightning_model import *
 from datasets.reverb_speech_data import DareDataset
+from utils.utils import getConfig
 import matplotlib.pyplot as plt
 import argparse
 p = argparse.ArgumentParser()
 p.add_argument('ckpt_path')
+p.add_argument('config_path')
 
-def run_checkpoint(ckpt_path):
+def run_checkpoint(config_path,ckpt_path):
+    cfg = getConfig(config_path)
+
     model = SpeechDAREUnet_v1.load_from_checkpoint(ckpt_path)
     model.eval()
 
-    test_loader  = DareDataset("test")
+    test_loader  = DareDataset(cfg,"test")
     example = test_loader[0]
     x = example[0]
     y = example[1]
