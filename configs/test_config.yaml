@@ -1,0 +1,29 @@
+datasets_path: /home/runner/
+random_seed: 230
+
+Model:
+  model_name: SpeechDAREUnet_v1
+  learning_rate: 0.001
+
+DataLoader:
+  batch_size: 2
+  shuffle: True
+  drop_last: True
+  num_workers: 1
+  pin_memory: True
+  persistent_workers: True
+
+ModelCheckpoint:
+  monitor: val_loss
+  dirpath: /home/runner/checkpoints
+
+Trainer:
+  limit_train_batches: 1
+  limit_val_batches: 1
+  limit_test_batches: 1
+  max_epochs: 1
+  log_every_n_steps: 1
+  accelerator: cpu
+  devices: 1
+  strategy: ddp_find_unused_parameters_false
+  profiler: null

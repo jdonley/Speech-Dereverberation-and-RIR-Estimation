@@ -1,20 +1,22 @@
-import torchaudio
-from torch import utils
+from torchaudio.datasets import LIBRISPEECH
+from torch.utils.data import DataLoader
 from pathlib import Path
-from utils import *
+from utils.utils import getConfig
 
-def LibriSpeechDataset(type="train"):
+def LibriSpeechDataset(config_path, type="train"):
     if type == "train":
         url = "train-clean-100"
     elif type == "val":
         url = "dev-clean"
     elif type == "test":
         url = "test-clean"
-    return torchaudio.datasets.LIBRISPEECH(
-        Path(getConfig()['datasets_path']),
+    else:
+        url=""
+    return LIBRISPEECH(
+        Path(getConfig(config_path)['datasets_path']),
         url=url,
         download=True
         )
 
-def LibriSpeechDataloader(type="train"):
-    return utils.data.DataLoader(LibriSpeechDataset(type))
+def LibriSpeechDataloader(config_path, type="train"):
+    return DataLoader(LibriSpeechDataset(config_path, type=type))

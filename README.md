@@ -12,11 +12,14 @@ We'll use Miniconda to create a virtual environment from which the project can b
     - Install dependencies
 
 ```
-conda update conda
-conda create -n SpeechDARE
+conda update -y conda
+conda create -y -n SpeechDARE
 conda activate SpeechDARE
 conda install -y python=3.8 anaconda
-conda install -y pytorch pytorch-lightning torchvision torchaudio cudatoolkit=11.6 numpy pyyaml matplotlib librosa -c pytorch -c conda-forge
+conda install -y pytorch torchvision torchaudio pytorch-cuda=11.6 -c pytorch -c nvidia
+conda install -y pytorch-lightning -c conda-forge
+conda install -y numpy pyyaml matplotlib librosa -c conda-forge
+pip install soxr
 ```
 
 Check that the GPU can be used by PyTorch:
@@ -29,3 +32,5 @@ This example assumes that
 suitable [cuDNN](https://developer.nvidia.com/rdp/cudnn-archive) package. See the
 [available Conda PyTorch install files](https://anaconda.org/pytorch/pytorch/files) for compatible
 CUDA Toolkit - cuDNN combinations. Use `nvcc --version` to determine the CUDA Toolkit version.
+
+If using Windows, a good alternative can be to use WSL2. The setup instructions above work *after* installing WSL2 and NVIDIA CUDA with the [instructions here](https://learn.microsoft.com/en-us/windows/ai/directml/gpu-cuda-in-wsl).
