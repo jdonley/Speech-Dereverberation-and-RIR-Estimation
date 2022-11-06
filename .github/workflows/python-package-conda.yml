@@ -24,8 +24,10 @@ jobs:
         sudo apt-get install llvm-7 llvm-7-dev
         export LLVM_CONFIG=/usr/bin/llvm-config-7
         conda install python=3.8 anaconda
-        conda install pytorch pytorch-lightning torchvision torchaudio cudatoolkit=11.6 numpy pyyaml matplotlib -c pytorch -c conda-forge
-        pip install librosa soxr
+        conda install -y pytorch torchvision torchaudio pytorch-cuda=11.6 -c pytorch -c nvidia
+        conda install -y pytorch-lightning -c conda-forge
+        conda install -y numpy pyyaml matplotlib librosa -c conda-forge
+        pip install soxr
     - name: Lint with flake8
       run: |
         conda install flake8
