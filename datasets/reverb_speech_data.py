@@ -106,7 +106,7 @@ class DareDataset(Dataset):
 
 def DareDataloader(config_path,type="train"):
     cfg = getConfig(config_path)
-    if type is not "train":
+    if type != "train":
         cfg['DataLoader']['shuffle'] = False
     return DataLoader(DareDataset(config_path,type),**cfg['DataLoader'])
 
