@@ -1,6 +1,5 @@
 from torch.utils.data import Dataset, DataLoader
 from pytorch_lightning import LightningDataModule
-from utils.utils import getConfig
 from datasets.speech_data import LibriSpeechDataset
 from datasets.rir_data import MitIrSurveyDataset
 import librosa
@@ -8,14 +7,14 @@ from scipy import signal
 import numpy as np
 
 class DareDataset(Dataset):
-    def __init__(self, config_path, type="train", split_train_val_test_p=[80,10,10], device='cuda'):
+    def __init__(self, config, type="train", split_train_val_test_p=[80,10,10], device='cuda'):
 
         self.type = type
         self.split_train_val_test_p = split_train_val_test_p
         self.device = device
         
-        self.rir_dataset = MitIrSurveyDataset(config_path, type=self.type, device=device)
-        self.speech_dataset = LibriSpeechDataset(config_path, type=self.type)
+        self.rir_dataset = MitIrSurveyDataset(config, type=self.type, device=device)
+        self.speech_dataset = LibriSpeechDataset(config, type=self.type)
 
         self.eps = 10**-32
 
@@ -104,19 +103,18 @@ class DareDataset(Dataset):
             
         return reverb_speech, speech, rir
 
-def DareDataloader(config_path,type="train"):
-    cfg = getConfig(config_path)
+def DareDataloader(config,type="train"):
     if type != "train":
-        cfg['DataLoader']['shuffle'] = False
-    return DataLoader(DareDataset(config_path,type),**cfg['DataLoader'])
+        config['DataLoader']['shuffle'] = False
+    return DataLoader(DareDataset(config,type),**config['DataLoader'])
 
 class DareDataModule(LightningDataModule):
-    def __init__(self,config_path):
+    def __init__(self,config):
         super().__init__()
-        self.config_path = config_path
+        self.config = config
     def train_dataloader(self):
-        return DareDataloader(type="train",config_path=self.config_path)
+        return DareDataloader(type="train",config=self.config)
     def val_dataloader(self):
-        return DareDataloader(type="val",config_path=self.config_path)
+        return DareDataloader(type="val",config=self.config)
     def test_dataloader(self):
-        return DareDataloader(type="test",config_path=self.config_path)
+        return DareDataloader(type="test",config=self.config)

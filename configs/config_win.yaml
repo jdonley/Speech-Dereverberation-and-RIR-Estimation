@@ -1,4 +1,4 @@
-datasets_path: C:\Datasets
+datasets_path: 'C:\Datasets'
 random_seed: 230
 
 Model:
@@ -15,7 +15,11 @@ DataLoader:
 
 ModelCheckpoint:
   monitor: val_loss
-  dirpath: C:\SpeechDARE\checkpoints
+  dirpath: 'C:\SpeechDARE\checkpoints'
+
+DDPStrategy:
+  process_group_backend: gloo
+  find_unused_parameters: False
 
 Trainer:
   limit_train_batches: 10
@@ -25,5 +29,14 @@ Trainer:
   log_every_n_steps: 10
   accelerator: gpu
   devices: 1
-  strategy: ddp_find_unused_parameters_false
   profiler: null
+
+RichProgressBarTheme:
+  description: green_yellow
+  progress_bar: green1
+  progress_bar_finished: green1
+  progress_bar_pulse: '#6206E0'
+  batch_progress: green_yellow
+  time: grey82
+  processing_speed: grey82
+  metrics: grey82

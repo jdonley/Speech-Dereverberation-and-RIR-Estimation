@@ -4,11 +4,13 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from models.lightning_model import *
 from datasets.reverb_speech_data import DareDataModule
 from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.strategies.ddp import DDPStrategy
 import pytorch_lightning as pl
 from utils.utils import getTestConfig
+from utils.progress_bar import getProgressBar
 
 def dummy_flow():
-    cfg, config_path = getTestConfig()
+    cfg = getTestConfig()
     # ===========================================================
     # PyTorch Lightning Models
     model = LitAutoEncoder()
@@ -16,7 +18,7 @@ def dummy_flow():
     model = SpeechDAREUnet_v1()
 
     # Data Module
-    datamodule = DareDataModule(config_path=config_path)
+    datamodule = DareDataModule(config=cfg)
 
     # Checkpoints
     ckpt_callback = ModelCheckpoint(
@@ -24,8 +26,15 @@ def dummy_flow():
         filename = model.name + "-{epoch:02d}-{val_loss:.2f}",
     )
 
+    # Strategy
+    strategy = DDPStrategy(**cfg['DDPStrategy'])
+
     # PyTorch Lightning Train
-    trainer = pl.Trainer(**cfg['Trainer'], callbacks=[ckpt_callback])
+    trainer = pl.Trainer(
+        **cfg['Trainer'],
+        strategy=strategy,
+        callbacks=[ckpt_callback,getProgressBar(cfg)]
+        )
 
     #trainer.fit(
     #    model=model,

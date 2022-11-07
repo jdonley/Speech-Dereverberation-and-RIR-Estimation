@@ -1,13 +1,12 @@
-import os
-os.environ["PL_TORCH_DISTRIBUTED_BACKEND"] = "gloo"
-
 from argparse import ArgumentParser
 from models.lightning_model import getModel
 from datasets.reverb_speech_data import DareDataModule
 import torch as t
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.strategies.ddp import DDPStrategy
 from utils.utils import getConfig
+from utils.progress_bar import getProgressBar
 import random
 import numpy as np
 
@@ -24,7 +23,7 @@ def main(args):
     model = getModel(**cfg['Model'])
 
     # Data Module
-    datamodule = DareDataModule(config_path=args.config_path)
+    datamodule = DareDataModule(config=cfg)
 
     # Checkpoints
     ckpt_callback = ModelCheckpoint(
@@ -32,8 +31,15 @@ def main(args):
         filename = model.name + "-{epoch:02d}-{val_loss:.2f}",
     )
 
+    # Strategy
+    strategy = DDPStrategy(**cfg['DDPStrategy'])
+
     # PyTorch Lightning Train
-    trainer = pl.Trainer(**cfg['Trainer'], callbacks=[ckpt_callback])
+    trainer = pl.Trainer(
+        **cfg['Trainer'],
+        strategy=strategy,
+        callbacks=[ckpt_callback,getProgressBar(cfg)]
+        )
 
     trainer.fit(
         model      = model,
