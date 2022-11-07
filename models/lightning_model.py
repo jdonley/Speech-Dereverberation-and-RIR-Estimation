@@ -165,7 +165,7 @@ class SpeechDAREUnet_v1(pl.LightningModule):
     def init(self):
         k = 5
         s = 2
-        # UNet model from "Speech Dereverberation Using Fully Convolutional Networks," Ernst et al., EUSIPCO 2018
+        # Small UNet model
         self.conv1 = nn.Sequential(nn.Conv2d(  1,  64, k, stride=s, padding=k//2), nn.LeakyReLU(0.2))
         self.conv2 = nn.Sequential(nn.Conv2d( 64, 128, k, stride=s, padding=k//2), nn.BatchNorm2d(128), nn.LeakyReLU(0.2))
         self.conv3 = nn.Sequential(nn.Conv2d(128, 256, k, stride=s, padding=k//2), nn.BatchNorm2d(256), nn.LeakyReLU(0.2))
@@ -181,11 +181,19 @@ class SpeechDAREUnet_v1(pl.LightningModule):
         # it is independent of forward
         x, y, z = batch # reverberant speech, clean speech, RIR (RIR not used in this base UNet model)
 
-        x = x[:,[0],:,:].float()
-        y = y[:,[0],:,:].float()
+        xr = x[:,[0],:,:].float()
+        xi = x[:,[1],:,:].float()
+        yr = y[:,[0],:,:].float()
+        yi = y[:,[1],:,:].float()
 
-        y_hat = self.predict(x)
-        loss   = nn.functional.mse_loss(y_hat, y)
+        yr_hat = self.predict(xr)
+        yi_hat = self.predict(xi)
+
+        loss_real = nn.functional.mse_loss(yr_hat, yr)
+        loss_imag = nn.functional.mse_loss(yi_hat, yi)
+        loss_mag  = nn.functional.mse_loss(t.log(t.abs(yr_hat + 1j*yi_hat)), t.log(t.abs(yr + 1j*yi)))
+
+        loss = loss_real + loss_imag + 2*loss_mag
         
         self.log("loss", {'train': loss })
         self.log("train_loss", loss )
@@ -195,12 +203,41 @@ class SpeechDAREUnet_v1(pl.LightningModule):
         # validation_step defines the validation loop.
         # it is independent of forward
         x, y, z = batch # reverberant speech, clean speech, RIR (RIR not used in this base UNet model)
-        x = x[:,[0],:,:].float()
-        y = y[:,[0],:,:].float()
         
-        y_hat = self.predict(x)
-        loss   = nn.functional.mse_loss(y_hat, y)
+        xr = x[:,[0],:,:].float()
+        xi = x[:,[1],:,:].float()
+        yr = y[:,[0],:,:].float()
+        yi = y[:,[1],:,:].float()
+
+        yr_hat = self.predict(xr)
+        yi_hat = self.predict(xi)
+
+        loss_real = nn.functional.mse_loss(yr_hat, yr)
+        loss_imag = nn.functional.mse_loss(yi_hat, yi)
+        loss_mag  = nn.functional.mse_loss(t.log(t.abs(yr_hat + 1j*yi_hat)), t.log(t.abs(yr + 1j*yi)))
+
+        loss = loss_real + loss_imag + 2*loss_mag
         
+        if self.current_epoch % 10 == 0:
+            import matplotlib.pyplot as plt
+            import numpy as np
+            fig, ((ax1, ax2, ax3),(ax4, ax5, ax6),(ax7, ax8, ax9)) = plt.subplots(3, 3)
+            a = x.cpu().squeeze().detach().numpy()
+            b = y.cpu().squeeze().detach().numpy()
+            y_hat = t.stack((yr_hat,yi_hat),dim=1)
+            c = y_hat.cpu().squeeze().detach().numpy()
+            ax1.imshow(a[0,0,:,:])
+            ax2.imshow(b[0,0,:,:])
+            ax3.imshow(c[0,0,:,:])
+            ax4.imshow(a[0,1,:,:])
+            ax5.imshow(b[0,1,:,:])
+            ax6.imshow(c[0,1,:,:])
+            ax7.imshow(np.log(np.abs(a[0,0,:,:] + 1j*a[0,1,:,:])))
+            ax8.imshow(np.log(np.abs(b[0,0,:,:] + 1j*b[0,1,:,:])))
+            ax9.imshow(np.log(np.abs(c[0,0,:,:] + 1j*c[0,1,:,:])))
+            plt.savefig("./images/"+str(self.current_epoch)+".png",dpi=600)
+            plt.clf()
+
         self.log("loss", {'val': loss })
         self.log("val_loss", loss )
         return loss
@@ -209,11 +246,20 @@ class SpeechDAREUnet_v1(pl.LightningModule):
         # test_step defines the test loop.
         # it is independent of forward
         x, y, z = batch # reverberant speech, clean speech, RIR (RIR not used in this base UNet model)
-        x = x[:,[0],:,:].float()
-        y = y[:,[0],:,:].float()
         
-        y_hat = self.predict(x)
-        loss   = nn.functional.mse_loss(y_hat, y)
+        xr = x[:,[0],:,:].float()
+        xi = x[:,[1],:,:].float()
+        yr = y[:,[0],:,:].float()
+        yi = y[:,[1],:,:].float()
+
+        yr_hat = self.predict(xr)
+        yi_hat = self.predict(xi)
+
+        loss_real = nn.functional.mse_loss(yr_hat, yr)
+        loss_imag = nn.functional.mse_loss(yi_hat, yi)
+        loss_mag  = nn.functional.mse_loss(t.log(t.abs(yr_hat + 1j*yi_hat)), t.log(t.abs(yr + 1j*yi)))
+
+        loss = loss_real + loss_imag + 2*loss_mag
         
         self.log("loss", {'test': loss })
         self.log("test_loss", loss )

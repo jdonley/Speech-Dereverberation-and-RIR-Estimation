@@ -1,6 +1,8 @@
 datasets_path: 'C:\Datasets'
 random_seed: 230
 
+stft_format: realimag # realimag or magphase
+
 Model:
   model_name: SpeechDAREUnet_v1
   learning_rate: 0.001

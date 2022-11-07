@@ -16,6 +16,7 @@ class DareDataset(Dataset):
         self.rir_dataset = MitIrSurveyDataset(config, type=self.type, device=device)
         self.speech_dataset = LibriSpeechDataset(config, type=self.type)
 
+        self.stft_format = config['stft_format']
         self.eps = 10**-32
 
         # Approx. 4 seconds at 16kHz
@@ -67,16 +68,25 @@ class DareDataset(Dataset):
             win_length=self.nfft,
             window='hann'
             )
+        
+        if self.stft_format == 'magphase':
+            np.seterr(divide = 'ignore')
+            rs_mag = np.log(np.abs(reverb_speech_stft)) # Magnitude
+            np.seterr(divide = 'warn')
+            rs_mag[np.isinf(rs_mag)] = self.eps
+            # Normalize to [-1,1]
+            rs_mag = rs_mag - rs_mag.min()
+            rs_mag = rs_mag / rs_mag.max() / 2 - 1
 
-        np.seterr(divide = 'ignore')
-        rs_mag = np.log(np.abs(reverb_speech_stft)) # Magnitude
-        np.seterr(divide = 'warn')
-        rs_mag[np.isinf(rs_mag)] = self.eps
-        # Normalize to [-1,1]
-        rs_mag = rs_mag - rs_mag.min()
-        rs_mag = rs_mag / rs_mag.max() / 2 - 1
+            reverb_speech = np.stack((rs_mag, np.angle(reverb_speech_stft)))
+        
+        elif self.stft_format == 'realimag':
+            reverb_speech = np.stack((np.real(reverb_speech_stft), np.imag(reverb_speech_stft)))
+            reverb_speech = reverb_speech - np.mean(reverb_speech)
+            reverb_speech = reverb_speech / np.max(np.abs(reverb_speech))
 
-        reverb_speech = np.stack((rs_mag, np.angle(reverb_speech_stft)))
+        else:
+            raise Exception("Unknown STFT format. Specify 'realimag' or 'magphase'.")
 
         speech_stft = librosa.stft(
             speech,
@@ -86,15 +96,23 @@ class DareDataset(Dataset):
             window='hann'
             )
 
-        np.seterr(divide = 'ignore')
-        s_mag = np.log(np.abs(speech_stft)) # Magnitude
-        np.seterr(divide = 'warn')
-        s_mag[np.isinf(s_mag)] = self.eps
-        # Normalize to [-1,1]
-        s_mag = s_mag - s_mag.min()
-        s_mag = s_mag / s_mag.max() / 2 - 1
+        if self.stft_format == 'magphase':
+            np.seterr(divide = 'ignore')
+            s_mag = np.log(np.abs(speech_stft)) # Magnitude
+            np.seterr(divide = 'warn')
+            s_mag[np.isinf(s_mag)] = self.eps
+            # Normalize to [-1,1]
+            s_mag = s_mag - s_mag.min()
+            s_mag = s_mag / s_mag.max() / 2 - 1
+            speech = np.stack((s_mag, np.angle(speech_stft)))
 
-        speech = np.stack((s_mag, np.angle(speech_stft)))
+        elif self.stft_format == 'realimag':
+            speech = np.stack((np.real(speech_stft), np.imag(speech_stft)))
+            speech = speech - np.mean(speech)
+            speech = speech / np.max(np.abs(speech))
+
+        else:
+            raise Exception("Unknown STFT format. Specify 'realimag' or 'magphase'.")
         
         rir = np.pad(
             rir,
