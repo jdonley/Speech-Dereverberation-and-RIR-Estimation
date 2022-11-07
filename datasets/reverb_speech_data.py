@@ -102,7 +102,7 @@ class DareDataset(Dataset):
             pad_width=(0, np.max((0,self.rir_duration - len(rir)))),
             )
             
-        return reverb_speech, speech, rir
+        return reverb_speech, speech, rir # 256 x 256 x 2 (mag, phase), 256 x 256 x 2, 32000
 
 def DareDataloader(config_path,type="train"):
     cfg = getConfig(config_path)

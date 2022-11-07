@@ -182,6 +182,101 @@ class SpeechDAREUnet_v1(pl.LightningModule):
         # it is independent of forward
         x, y, z = batch # reverberant speech, clean speech, RIR (RIR not used in this base UNet model)
 
+        # batch_size x 1 (mag stft only) x 256 x 256
+        x = x[:,[0],:,:].float()
+        y = y[:,[0],:,:].float()
+
+        y_hat = self.predict(x)
+        loss   = nn.functional.mse_loss(y_hat, y)
+        
+        self.log("train_loss", loss)
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        # validation_step defines the validation loop.
+        # it is independent of forward
+        x, y, z = batch # reverberant speech, clean speech, RIR (RIR not used in this base UNet model)
+        x = x[:,[0],:,:].float()
+        y = y[:,[0],:,:].float()
+        
+        y_hat = self.predict(x)
+        loss   = nn.functional.mse_loss(y_hat, y)
+        
+        self.log("val_loss", loss)
+        return loss
+
+    def test_step(self, batch, batch_idx):
+        # test_step defines the test loop.
+        # it is independent of forward
+        x, y, z = batch # reverberant speech, clean speech, RIR (RIR not used in this base UNet model)
+        x = x[:,[0],:,:].float()
+        y = y[:,[0],:,:].float()
+        
+        y_hat = self.predict(x)
+        loss   = nn.functional.mse_loss(y_hat, y)
+        
+        self.log("test_loss", loss)
+        return loss
+
+    def predict(self, x):
+        c1Out = self.conv1(x)     # (64 x 64 x  64)
+        c2Out = self.conv2(c1Out) # (16 x 16 x 128)
+        c3Out = self.conv3(c2Out) # ( 4 x  4 x 256)
+        c4Out = self.conv4(c3Out) # ( 1 x  1 x 256)
+
+        d1Out = self.deconv1(c4Out) # (  4 x   4 x 256)
+        d2Out = self.deconv2(t.cat((d1Out, c3Out), dim=1)) # ( 16 x  16 x 128)
+        d3Out = self.deconv3(t.cat((d2Out, c2Out), dim=1)) # ( 64 x  64 x 128)
+        d4Out = self.deconv4(t.cat((d3Out, c1Out), dim=1)) # (256 x 256 x 1)
+        return d4Out
+
+    def configure_optimizers(self):
+        optimizer = optim.Adam(self.parameters(), lr=self.learning_rate)
+        return optimizer
+
+####################################################################
+
+class SpeechDAREUnet_v2(pl.LightningModule):
+    def __init__(self,learning_rate=1e-3):
+        super().__init__()
+        self.name = "SpeechDAREUnet_v1"
+
+        self.has_init = False
+        self.learning_rate = learning_rate
+        self.init()
+
+    def init(self):
+        k = 5
+        s = 2
+        # UNet model from "Speech Dereverberation Using Fully Convolutional Networks," Ernst et al., EUSIPCO 2018
+        self.conv1 = nn.Sequential(nn.Conv2d(  1,  64, k, stride=s, padding=k//2), nn.LeakyReLU(0.2))
+        self.conv2 = nn.Sequential(nn.Conv2d( 64, 128, k, stride=s, padding=k//2), nn.BatchNorm2d(128), nn.LeakyReLU(0.2))
+        self.conv3 = nn.Sequential(nn.Conv2d(128, 256, k, stride=s, padding=k//2), nn.BatchNorm2d(256), nn.LeakyReLU(0.2))
+        self.conv4 = nn.Sequential(nn.Conv2d(256, 256, k, stride=s, padding=k//2), nn.BatchNorm2d(256), nn.ReLU())
+        
+        self.deconv1 = nn.Sequential(nn.ConvTranspose2d(256, 256, k, stride=s, padding=k//2, output_padding=s-1), nn.BatchNorm2d(256), nn.Dropout2d(p=0.5), nn.ReLU())
+        self.deconv2 = nn.Sequential(nn.ConvTranspose2d(512, 128, k, stride=s, padding=k//2, output_padding=s-1), nn.BatchNorm2d(128), nn.Dropout2d(p=0.5), nn.ReLU())
+        self.deconv3 = nn.Sequential(nn.ConvTranspose2d(256,  64, k, stride=s, padding=k//2, output_padding=s-1), nn.BatchNorm2d(64),  nn.ReLU())
+        self.deconv4 = nn.Sequential(nn.ConvTranspose2d(128,   1, k, stride=s, padding=k//2, output_padding=s-1), nn.Tanh())
+
+        # The idea for this simple RIR reconstruction branch is expand the 1 x 1 x 256 encoding into a 1 x 1 x 32000
+        # RIR by increasing the number of channels but never the height or width.
+        # The sizes for the RIR reconstruction assume the encoding is 1 x 1 x 256 as is labeled in predict(),
+        # but with the current settings I think it's actually 16 x 16 x 256. Also, I'm not sure if BatchNorm2D and Dropout2d
+        # are correct since the tensor is always 1 x 1 x N, i.e. not really 2d.
+        # It make more more sense to reshape the tensor and use 1d operations instead.
+
+        self.rir1 = nn.Sequential(nn.ConvTranspose2d(256,    1024, 1, stride=1, padding=0, output_padding=0), nn.BatchNorm2d(1024),  nn.Dropout2d(p=0.5), nn.ReLU())
+        self.rir2 = nn.Sequential(nn.ConvTranspose2d(1024,   4096, 1, stride=1, padding=0, output_padding=0), nn.BatchNorm2d(4096),  nn.Dropout2d(p=0.5), nn.ReLU())
+        self.rir3 = nn.Sequential(nn.ConvTranspose2d(4096,  16384, 1, stride=1, padding=0, output_padding=0), nn.BatchNorm2d(16384), nn.Dropout2d(p=0.5), nn.ReLU())
+        self.rir4 = nn.Sequential(nn.ConvTranspose2d(16384, 32000, 1, stride=1, padding=0, output_padding=0), nn.BatchNorm2d(32000), nn.Dropout2d(p=0.5), nn.ReLU())
+
+
+    def training_step(self, batch, batch_idx):
+        # training_step defines the train loop.
+        # it is independent of forward
+        x, y, z = batch # reverberant speech, clean speech, RIR (RIR not used in this base UNet model)
+
         x = x[:,[0],:,:].float()
         y = y[:,[0],:,:].float()
 

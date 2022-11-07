@@ -19,7 +19,7 @@ def main(args):
     # ===========================================================
     # Configuration
     cfg = getConfig(config_path=args.config_path)
-
+    
     # PyTorch Lightning Models
     model = getModel(**cfg['Model'])
 
