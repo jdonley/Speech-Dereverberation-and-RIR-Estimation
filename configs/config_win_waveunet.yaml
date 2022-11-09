@@ -1,0 +1,54 @@
+datasets_path: 'C:\Datasets'
+random_seed: 230
+
+Model:
+  model_name: Waveunet
+  learning_rate: 0.001
+
+DataLoader:
+  batch_size: 64
+  shuffle: True
+  drop_last: True
+  num_workers: 12
+  pin_memory: True
+  persistent_workers: True
+
+ModelCheckpoint:
+  monitor: val_loss
+  dirpath: 'C:\SpeechDARE\checkpoints'
+
+DDPStrategy:
+  process_group_backend: gloo
+  find_unused_parameters: False
+
+Trainer:
+  limit_train_batches: 2500
+  limit_val_batches: 125
+  limit_test_batches: 125
+  max_epochs: 20
+  log_every_n_steps: 10
+  accelerator: gpu
+  devices: 1
+  profiler: null
+
+RichProgressBarTheme:
+  description: green_yellow
+  progress_bar: green1
+  progress_bar_finished: green1
+  progress_bar_pulse: '#6206E0'
+  batch_progress: green_yellow
+  time: grey82
+  processing_speed: grey82
+  metrics: grey82
+
+WaveUnet:
+  channels: 1
+  kernel_size_down: 5
+  kernel_size_up: 5
+  levels: 12
+  features: 24
+  feature_growth: add
+  output_size: 2.0
+  sr: 16000
+  conv_type: bn
+  res: fixed

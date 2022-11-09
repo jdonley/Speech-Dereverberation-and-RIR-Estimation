@@ -25,9 +25,9 @@ def run_checkpoint(config_path,ckpt_path):
     prediction = model.predict(t.tensor(x[:,:,:,None],dtype=t.float).permute((0,3,1,2)))
 
     fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
-    ax1.imshow(x[0,:,:].squeeze())
-    ax2.imshow(y[0,:,:].squeeze())
-    ax3.imshow(prediction[0,0,:,:].squeeze().detach().numpy())
+    ax1.imshow(x[0,:,:].squeeze(), origin='lower')
+    ax2.imshow(y[0,:,:].squeeze(), origin='lower')
+    ax3.imshow(prediction[0,0,:,:].squeeze().detach().numpy(), origin='lower')
     plt.show()
 
 if __name__=='__main__':

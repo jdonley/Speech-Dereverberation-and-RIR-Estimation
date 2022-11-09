@@ -2,10 +2,12 @@ from torch import optim, nn
 import pytorch_lightning as pl
 import torch as t
 from utils.utils import getConfig
+from WaveUnet import *
 
 def getModel(model_name=None,learning_rate=1e-3):
     if   model_name == "SpeechDAREUnet_v1": model = SpeechDAREUnet_v1(learning_rate=learning_rate)
     elif model_name == "ErnstUnet":         model = ErnstUnet        (learning_rate=learning_rate)
+    elif model_name == "Waveunet":          model = None # hack because I don't have the input params for the waveunet here
     else: raise Exception("Unknown model name.")
     
     return model
@@ -330,3 +332,45 @@ class SpeechDAREUnet_v2(pl.LightningModule):
     def configure_optimizers(self):
         optimizer = optim.Adam(self.parameters(), lr=self.learning_rate)
         return optimizer
+####################################################################
+# IGNORE THIS: I will delete it once I get the real WaveUnet running
+class Wave_UNet_v1(pl.LightningModule):
+    def __init__(self,learning_rate=1e-3):
+        super().__init__()
+        self.name = "Wave_UNet_v1"
+
+        self.has_init = False
+        self.learning_rate = learning_rate
+        self.init()
+    
+    
+    def init(self):
+        k = 5
+        s = 2
+        
+        # For now, manually fix the number of layers at 12. Eventually make this a parameter and create downsample and upsample blocks
+        # Start with 2 seconds of data @ 16 kHz so the sizes might be (if reducing by 2x): 32k, 16k, 8k, 4k, 2k, 1k, 500, 250, 125
+        # Start with 32768 samples  of data @ 16 kHz (~2.05s) so the sizes go down to 4 samples ans 12*24 = 288 channels
+        Fc = 24 # extra filters per layer
+        fd = 15 # downsampling conv size
+        fu = 5  # upsampling conv size
+        pd = 'same' # padding for downsampling so the conv output is the same size as the input
+        s  = 2
+        m  = 0.01 # Wave-U-Net uses momentum 0.01 for the BatchNorm1d layers, the default is 0.1
+        
+        self.down1  = nn.Sequential(nn.Conv1d(   1,  Fc*1,  fd, padding=pd, stride=s), nn.BatchNorm1d(Fc*1,  m), nn.LeakyReLU(0.2))
+        self.down2  = nn.Sequential(nn.Conv1d(Fc*1,  Fc*2,  fd, padding=pd, stride=s), nn.BatchNorm1d(Fc*2,  m), nn.LeakyReLU(0.2))
+        self.down3  = nn.Sequential(nn.Conv1d(Fc*2,  Fc*3,  fd, padding=pd, stride=s), nn.BatchNorm1d(Fc*3,  m), nn.LeakyReLU(0.2))
+        self.down4  = nn.Sequential(nn.Conv1d(Fc*3,  Fc*4,  fd, padding=pd, stride=s), nn.BatchNorm1d(Fc*4,  m), nn.LeakyReLU(0.2))
+        self.down5  = nn.Sequential(nn.Conv1d(Fc*4,  Fc*5,  fd, padding=pd, stride=s), nn.BatchNorm1d(Fc*5,  m), nn.LeakyReLU(0.2))
+        self.down6  = nn.Sequential(nn.Conv1d(Fc*5,  Fc*6,  fd, padding=pd, stride=s), nn.BatchNorm1d(Fc*6,  m), nn.LeakyReLU(0.2))
+        self.down7  = nn.Sequential(nn.Conv1d(Fc*6,  Fc*7,  fd, padding=pd, stride=s), nn.BatchNorm1d(Fc*7,  m), nn.LeakyReLU(0.2))
+        self.down8  = nn.Sequential(nn.Conv1d(Fc*7,  Fc*8,  fd, padding=pd, stride=s), nn.BatchNorm1d(Fc*8,  m), nn.LeakyReLU(0.2))
+        self.down9  = nn.Sequential(nn.Conv1d(Fc*8,  Fc*9,  fd, padding=pd, stride=s), nn.BatchNorm1d(Fc*9,  m), nn.LeakyReLU(0.2))
+        self.down10 = nn.Sequential(nn.Conv1d(Fc*9,  Fc*10, fd, padding=pd, stride=s), nn.BatchNorm1d(F*10,  m), nn.LeakyReLU(0.2))
+        self.down11 = nn.Sequential(nn.Conv1d(Fc*10, Fc*11, fd, padding=pd, stride=s), nn.BatchNorm1d(Fc*11, m), nn.LeakyReLU(0.2))
+        self.down12 = nn.Sequential(nn.Conv1d(Fc*11, Fc*12, fd, padding=pd, stride=s), nn.BatchNorm1d(Fc*12, m), nn.LeakyReLU(0.2))
+
+        
+       
+
