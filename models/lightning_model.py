@@ -252,7 +252,7 @@ class SpeechDAREUnet_v1(pl.LightningModule):
         # loss_mag  = nn.functional.mse_loss(t.log(t.abs(yr_hat + 1j*yi_hat)), t.log(t.abs(yr + 1j*yi)))
         # loss = loss_real + loss_imag + 2*loss_mag
         
-        if self.current_epoch % 1 == 0:
+        if (self.current_epoch % 1 == 0) and (batch_idx==0):
             import matplotlib.pyplot as plt
             import numpy as np
             fh = plt.figure()
@@ -270,7 +270,7 @@ class SpeechDAREUnet_v1(pl.LightningModule):
             ax8.imshow(np.log(np.abs(b[0,0,:,:] + 1j*b[0,1,:,:])))
             ax9.imshow(np.log(np.abs(c[0,0,:,:] + 1j*c[0,1,:,:])))
             plt.savefig("./images/"+str(self.current_epoch)+".png",dpi=600)
-            plt.clf()
+            plt.close()
 
 
         self.log("loss", {'val': loss })
