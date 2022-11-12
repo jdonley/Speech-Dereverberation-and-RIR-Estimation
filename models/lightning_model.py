@@ -1,7 +1,7 @@
 from torch import optim, nn
 import pytorch_lightning as pl
 import torch as t
-from utils.utils import getConfig
+from torchmetrics import ScaleInvariantSignalDistortionRatio
 
 def getModel(model_name=None,learning_rate=1e-3):
     if   model_name == "SpeechDAREUnet_v1": model = SpeechDAREUnet_v1(learning_rate=learning_rate)
@@ -160,13 +160,17 @@ class SpeechDAREUnet_v1(pl.LightningModule):
 
         self.has_init = False
         self.learning_rate = learning_rate
+        self.si_sdr = ScaleInvariantSignalDistortionRatio()
+        self.nfft = 511
+        self.nhop = 256
+        self.win = t.hann_window(self.nfft)
         self.init()
 
     def init(self):
         k = 5
         s = 2
         # Small UNet model
-        self.conv1 = nn.Sequential(nn.Conv2d(  1,  64, k, stride=s, padding=k//2), nn.LeakyReLU(0.2))
+        self.conv1 = nn.Sequential(nn.Conv2d(  2,  64, k, stride=s, padding=k//2), nn.LeakyReLU(0.2))
         self.conv2 = nn.Sequential(nn.Conv2d( 64, 128, k, stride=s, padding=k//2), nn.BatchNorm2d(128), nn.LeakyReLU(0.2))
         self.conv3 = nn.Sequential(nn.Conv2d(128, 256, k, stride=s, padding=k//2), nn.BatchNorm2d(256), nn.LeakyReLU(0.2))
         self.conv4 = nn.Sequential(nn.Conv2d(256, 256, k, stride=s, padding=k//2), nn.BatchNorm2d(256), nn.ReLU())
@@ -174,57 +178,87 @@ class SpeechDAREUnet_v1(pl.LightningModule):
         self.deconv1 = nn.Sequential(nn.ConvTranspose2d(256, 256, k, stride=s, padding=k//2, output_padding=s-1), nn.BatchNorm2d(256), nn.Dropout2d(p=0.5), nn.ReLU())
         self.deconv2 = nn.Sequential(nn.ConvTranspose2d(512, 128, k, stride=s, padding=k//2, output_padding=s-1), nn.BatchNorm2d(128), nn.Dropout2d(p=0.5), nn.ReLU())
         self.deconv3 = nn.Sequential(nn.ConvTranspose2d(256,  64, k, stride=s, padding=k//2, output_padding=s-1), nn.BatchNorm2d(64),  nn.ReLU())
-        self.deconv4 = nn.Sequential(nn.ConvTranspose2d(128,   1, k, stride=s, padding=k//2, output_padding=s-1), nn.Tanh())
+        self.deconv4 = nn.Sequential(nn.ConvTranspose2d(128,   2, k, stride=s, padding=k//2, output_padding=s-1), nn.Tanh())
 
     def training_step(self, batch, batch_idx):
         # training_step defines the train loop.
         # it is independent of forward
-        x, y, z = batch # reverberant speech, clean speech, RIR (RIR not used in this base UNet model)
+        x, y, z, rir = batch # reverberant speech, clean speech, RIR (RIR not used in this base UNet model)
+        
+        x = x.float()
+        y = y.float()
+        y_hat = self.predict(x.float())
 
-        xr = x[:,[0],:,:].float()
-        xi = x[:,[1],:,:].float()
-        yr = y[:,[0],:,:].float()
-        yi = y[:,[1],:,:].float()
+        y_c = y[:,0,:,:].float() + 1j*y[:,1,:,:].float()
+        y_hat_c = y_hat[:,0,:,:] + 1j*y_hat[:,1,:,:]
+        mse_abs = nn.functional.mse_loss(
+            t.log(t.abs(y_hat_c)),
+            t.log(t.abs(y_c))
+            )
+        phasedist = t.sum(t.abs(y_c)/t.sum(t.abs(y_c)) * t.abs(t.angle(y_c)-t.angle(y_hat_c)))
+        # loss = mse_abs + phasedist
 
-        yr_hat = self.predict(xr)
-        yi_hat = self.predict(xi)
+        y_hat_wav = t.istft(y_hat_c,self.nfft,hop_length=self.nhop,win_length=self.nfft,window=self.win.to(self.device),length=z.shape[1])
+        loss = - self.si_sdr(y_hat_wav, z)
 
-        loss_real = nn.functional.mse_loss(yr_hat, yr)
-        loss_imag = nn.functional.mse_loss(yi_hat, yi)
-        loss_mag  = nn.functional.mse_loss(t.log(t.abs(yr_hat + 1j*yi_hat)), t.log(t.abs(yr + 1j*yi)))
-
-        loss = loss_real + loss_imag + 2*loss_mag
+        # Try real then imag and loss=real+imag+abs 
+        # xr = x[:,[0],:,:].float()
+        # xi = x[:,[1],:,:].float()
+        # yr = y[:,[0],:,:].float()
+        # yi = y[:,[1],:,:].float()
+        # yr_hat = self.predict(xr)
+        # yi_hat = self.predict(xi)
+        # loss_real = nn.functional.mse_loss(yr_hat, yr)
+        # loss_imag = nn.functional.mse_loss(yi_hat, yi)
+        # loss_mag  = nn.functional.mse_loss(t.log(t.abs(yr_hat + 1j*yi_hat)), t.log(t.abs(yr + 1j*yi)))
+        # loss = loss_real + loss_imag + 2*loss_mag
         
         self.log("loss", {'train': loss })
         self.log("train_loss", loss )
+        self.log("train_phasedist", phasedist )
+        self.log("train_mse_abs", mse_abs )
         return loss
 
     def validation_step(self, batch, batch_idx):
         # validation_step defines the validation loop.
         # it is independent of forward
-        x, y, z = batch # reverberant speech, clean speech, RIR (RIR not used in this base UNet model)
+        x, y, z, rir = batch # reverberant speech, clean speech, RIR (RIR not used in this base UNet model)
         
-        xr = x[:,[0],:,:].float()
-        xi = x[:,[1],:,:].float()
-        yr = y[:,[0],:,:].float()
-        yi = y[:,[1],:,:].float()
+        x = x.float()
+        y = y.float()
+        y_hat = self.predict(x.float())
 
-        yr_hat = self.predict(xr)
-        yi_hat = self.predict(xi)
+        y_c = y[:,0,:,:].float() + 1j*y[:,1,:,:].float()
+        y_hat_c = y_hat[:,0,:,:] + 1j*y_hat[:,1,:,:]
+        mse_abs = nn.functional.mse_loss(
+            t.log(t.abs(y_hat_c)),
+            t.log(t.abs(y_c))
+            )
+        phasedist = t.sum(t.abs(y_c)/t.sum(t.abs(y_c)) * t.abs(t.angle(y_c)-t.angle(y_hat_c)))
+        # loss = mse_abs + phasedist
 
-        loss_real = nn.functional.mse_loss(yr_hat, yr)
-        loss_imag = nn.functional.mse_loss(yi_hat, yi)
-        loss_mag  = nn.functional.mse_loss(t.log(t.abs(yr_hat + 1j*yi_hat)), t.log(t.abs(yr + 1j*yi)))
+        y_hat_wav = t.istft(y_hat_c,self.nfft,hop_length=self.nhop,win_length=self.nfft,window=self.win.to(self.device),length=z.shape[1])
+        loss = - self.si_sdr(y_hat_wav, z)
 
-        loss = loss_real + loss_imag + 2*loss_mag
+        # Try real then imag and loss=real+imag+abs 
+        # xr = x[:,[0],:,:].float()
+        # xi = x[:,[1],:,:].float()
+        # yr = y[:,[0],:,:].float()
+        # yi = y[:,[1],:,:].float()
+        # yr_hat = self.predict(xr)
+        # yi_hat = self.predict(xi)
+        # loss_real = nn.functional.mse_loss(yr_hat, yr)
+        # loss_imag = nn.functional.mse_loss(yi_hat, yi)
+        # loss_mag  = nn.functional.mse_loss(t.log(t.abs(yr_hat + 1j*yi_hat)), t.log(t.abs(yr + 1j*yi)))
+        # loss = loss_real + loss_imag + 2*loss_mag
         
-        if self.current_epoch % 10 == 0:
+        if self.current_epoch % 1 == 0:
             import matplotlib.pyplot as plt
             import numpy as np
+            fh = plt.figure()
             fig, ((ax1, ax2, ax3),(ax4, ax5, ax6),(ax7, ax8, ax9)) = plt.subplots(3, 3)
             a = x.cpu().squeeze().detach().numpy()
             b = y.cpu().squeeze().detach().numpy()
-            y_hat = t.stack((yr_hat,yi_hat),dim=1)
             c = y_hat.cpu().squeeze().detach().numpy()
             ax1.imshow(a[0,0,:,:])
             ax2.imshow(b[0,0,:,:])
@@ -238,31 +272,50 @@ class SpeechDAREUnet_v1(pl.LightningModule):
             plt.savefig("./images/"+str(self.current_epoch)+".png",dpi=600)
             plt.clf()
 
+
         self.log("loss", {'val': loss })
         self.log("val_loss", loss )
+        self.log("val_phasedist", phasedist )
+        self.log("val_mse_abs", mse_abs )
         return loss
 
     def test_step(self, batch, batch_idx):
         # test_step defines the test loop.
         # it is independent of forward
-        x, y, z = batch # reverberant speech, clean speech, RIR (RIR not used in this base UNet model)
+        x, y, z, rir = batch # reverberant speech, clean speech, RIR (RIR not used in this base UNet model)
         
-        xr = x[:,[0],:,:].float()
-        xi = x[:,[1],:,:].float()
-        yr = y[:,[0],:,:].float()
-        yi = y[:,[1],:,:].float()
+        x = x.float()
+        y = y.float()
+        y_hat = self.predict(x.float())
 
-        yr_hat = self.predict(xr)
-        yi_hat = self.predict(xi)
+        y_c = y[:,0,:,:].float() + 1j*y[:,1,:,:].float()
+        y_hat_c = y_hat[:,0,:,:] + 1j*y_hat[:,1,:,:]
+        mse_abs = nn.functional.mse_loss(
+            t.log(t.abs(y_hat_c)),
+            t.log(t.abs(y_c))
+            )
+        phasedist = t.sum(t.abs(y_c)/t.sum(t.abs(y_c)) * t.abs(t.angle(y_c)-t.angle(y_hat_c)))
+        # loss = mse_abs + phasedist
 
-        loss_real = nn.functional.mse_loss(yr_hat, yr)
-        loss_imag = nn.functional.mse_loss(yi_hat, yi)
-        loss_mag  = nn.functional.mse_loss(t.log(t.abs(yr_hat + 1j*yi_hat)), t.log(t.abs(yr + 1j*yi)))
+        y_hat_wav = t.istft(y_hat_c,self.nfft,hop_length=self.nhop,win_length=self.nfft,window=self.win.to(self.device),length=z.shape[1])
+        loss = - self.si_sdr(y_hat_wav, z)
 
-        loss = loss_real + loss_imag + 2*loss_mag
+        # Try real then imag and loss=real+imag+abs 
+        # xr = x[:,[0],:,:].float()
+        # xi = x[:,[1],:,:].float()
+        # yr = y[:,[0],:,:].float()
+        # yi = y[:,[1],:,:].float()
+        # yr_hat = self.predict(xr)
+        # yi_hat = self.predict(xi)
+        # loss_real = nn.functional.mse_loss(yr_hat, yr)
+        # loss_imag = nn.functional.mse_loss(yi_hat, yi)
+        # loss_mag  = nn.functional.mse_loss(t.log(t.abs(yr_hat + 1j*yi_hat)), t.log(t.abs(yr + 1j*yi)))
+        # loss = loss_real + loss_imag + 2*loss_mag
         
         self.log("loss", {'test': loss })
         self.log("test_loss", loss )
+        self.log("test_phasedist", phasedist )
+        self.log("test_mse_abs", mse_abs )
         return loss
 
     def predict(self, x):

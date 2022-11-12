@@ -88,6 +88,7 @@ class DareDataset(Dataset):
         else:
             raise Exception("Unknown STFT format. Specify 'realimag' or 'magphase'.")
 
+        speech_wav = speech / np.max(np.abs(speech)) - np.mean(speech)
         speech_stft = librosa.stft(
             speech,
             n_fft=self.nfft,
@@ -95,6 +96,16 @@ class DareDataset(Dataset):
             win_length=self.nfft,
             window='hann'
             )
+        # import torch as t
+        # s = t.tensor(np.real(speech_stft[None,:,:])).float() + 1j*t.tensor(np.imag(speech_stft[None,:,:])).float()
+        # speech2 = np.squeeze(t.istft(s,self.nfft,hop_length=self.nhop,win_length=self.nfft,window=t.hann_window(self.nfft),length=speech_wav.shape[0]).numpy())
+        # # print(speech-speech2)
+        # import matplotlib.pyplot as plt
+        # plt.plot(speech, label = "speech")
+        # plt.plot(speech2, label = "speech2")
+        # plt.plot(speech-speech2, label = "speech-speech2")
+        # plt.show()
+        # plt.close()
 
         if self.stft_format == 'magphase':
             np.seterr(divide = 'ignore')
@@ -119,7 +130,7 @@ class DareDataset(Dataset):
             pad_width=(0, np.max((0,self.rir_duration - len(rir)))),
             )
             
-        return reverb_speech, speech, rir
+        return reverb_speech, speech, speech_wav, rir
 
 def DareDataloader(config,type="train"):
     if type != "train":
