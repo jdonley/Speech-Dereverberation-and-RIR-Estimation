@@ -354,14 +354,16 @@ class SpeechDAREUnet_v2(pl.LightningModule):
     def init(self):
         k = 5
         s = 2
+        p_drop = 0.0
+        leaky_slope = 0.01
         # Small UNet model
-        self.conv1 = nn.Sequential(nn.Conv2d(  2,  64, k, stride=s, padding=k//2), nn.LeakyReLU(0.2))
-        self.conv2 = nn.Sequential(nn.Conv2d( 64, 128, k, stride=s, padding=k//2), nn.BatchNorm2d(128), nn.LeakyReLU(0.2))
-        self.conv3 = nn.Sequential(nn.Conv2d(128, 256, k, stride=s, padding=k//2), nn.BatchNorm2d(256), nn.LeakyReLU(0.2))
+        self.conv1 = nn.Sequential(nn.Conv2d(  2,  64, k, stride=s, padding=k//2), nn.LeakyReLU(leaky_slope))
+        self.conv2 = nn.Sequential(nn.Conv2d( 64, 128, k, stride=s, padding=k//2), nn.BatchNorm2d(128), nn.LeakyReLU(leaky_slope))
+        self.conv3 = nn.Sequential(nn.Conv2d(128, 256, k, stride=s, padding=k//2), nn.BatchNorm2d(256), nn.LeakyReLU(leaky_slope))
         self.conv4 = nn.Sequential(nn.Conv2d(256, 256, k, stride=s, padding=k//2), nn.BatchNorm2d(256), nn.ReLU())
         
-        self.deconv1 = nn.Sequential(nn.ConvTranspose2d(256, 256, k, stride=s, padding=k//2, output_padding=s-1), nn.BatchNorm2d(256), nn.Dropout2d(p=0.5), nn.ReLU())
-        self.deconv2 = nn.Sequential(nn.ConvTranspose2d(512, 128, k, stride=s, padding=k//2, output_padding=s-1), nn.BatchNorm2d(128), nn.Dropout2d(p=0.5), nn.ReLU())
+        self.deconv1 = nn.Sequential(nn.ConvTranspose2d(256, 256, k, stride=s, padding=k//2, output_padding=s-1), nn.BatchNorm2d(256), nn.Dropout2d(p=p_drop), nn.ReLU())
+        self.deconv2 = nn.Sequential(nn.ConvTranspose2d(512, 128, k, stride=s, padding=k//2, output_padding=s-1), nn.BatchNorm2d(128), nn.Dropout2d(p=p_drop), nn.ReLU())
         self.deconv3 = nn.Sequential(nn.ConvTranspose2d(256,  64, k, stride=s, padding=k//2, output_padding=s-1), nn.BatchNorm2d(64),  nn.ReLU())
         self.deconv4 = nn.Sequential(nn.ConvTranspose2d(128,   2, k, stride=s, padding=k//2, output_padding=s-1), nn.BatchNorm2d(2),  nn.ReLU())
         
@@ -376,13 +378,7 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         y = y.float()
         y_hat = self.predict(x.float())
 
-        y_c = y[:,0,:,:].float() + 1j*y[:,1,:,:].float()
-        y_hat_c = y_hat[:,0,:,:] + 1j*y_hat[:,1,:,:]
-        mse_real = nn.functional.mse_loss(t.real(y_hat_c),t.real(y_c))
-        mse_imag = nn.functional.mse_loss(t.imag(y_hat_c),t.imag(y_c))
-        mse_abs = nn.functional.mse_loss(t.log(t.abs(y_hat_c)),t.log(t.abs(y_c)))
-        phasedist = t.sum(t.abs(y_c)/t.sum(t.abs(y_c)) * t.abs(t.angle(y_c)-t.angle(y_hat_c)))
-        loss = mse_real + mse_imag + mse_abs
+        loss, mse_real, mse_imag, mse_abs, phasedist, _ = self.compute_losses(y, y_hat)
         
         self.log("loss", {'train': loss })
         self.log("train_loss", loss )
@@ -399,15 +395,9 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         y = y.float()
         y_hat = self.predict(x.float())
 
-        y_c = y[:,0,:,:].float() + 1j*y[:,1,:,:].float()
-        y_hat_c = y_hat[:,0,:,:] + 1j*y_hat[:,1,:,:]
-        mse_real = nn.functional.mse_loss(t.real(y_hat_c),t.real(y_c))
-        mse_imag = nn.functional.mse_loss(t.imag(y_hat_c),t.imag(y_c))
-        mse_abs = nn.functional.mse_loss(t.log(t.abs(y_hat_c)),t.log(t.abs(y_c)))
-        phasedist = t.sum(t.abs(y_c)/t.sum(t.abs(y_c)) * t.abs(t.angle(y_c)-t.angle(y_hat_c)))
-        loss = mse_real + mse_imag + mse_abs
+        loss, mse_real, mse_imag, mse_abs, phasedist, y_hat_c = self.compute_losses(y, y_hat)
         
-        if (self.current_epoch % 1 == 0) and (batch_idx==0):
+        if (self.current_epoch % 50 == 0) and (batch_idx==0):
             import matplotlib.pyplot as plt
             import numpy as np
             fh = plt.figure()
@@ -450,13 +440,7 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         y = y.float()
         y_hat = self.predict(x.float())
 
-        y_c = y[:,0,:,:].float() + 1j*y[:,1,:,:].float()
-        y_hat_c = y_hat[:,0,:,:] + 1j*y_hat[:,1,:,:]
-        mse_real = nn.functional.mse_loss(t.real(y_hat_c),t.real(y_c))
-        mse_imag = nn.functional.mse_loss(t.imag(y_hat_c),t.imag(y_c))
-        mse_abs = nn.functional.mse_loss(t.log(t.abs(y_hat_c)),t.log(t.abs(y_c)))
-        phasedist = t.sum(t.abs(y_c)/t.sum(t.abs(y_c)) * t.abs(t.angle(y_c)-t.angle(y_hat_c)))
-        loss = mse_real + mse_imag + mse_abs
+        loss, mse_real, mse_imag, mse_abs, phasedist, _ = self.compute_losses(y, y_hat)
         
         self.log("loss", {'test': loss })
         self.log("test_loss", loss )
@@ -476,6 +460,16 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         d4Out = self.deconv4(t.cat((d3Out, c1Out), dim=1)) # (256 x 256 x 1)
         out1Out = self.out1(d4Out) # (256 x 256 x 1)
         return out1Out
+    
+    def compute_losses(self, y, y_predict):
+        y_c = y[:,0,:,:].float() + 1j*y[:,1,:,:].float()
+        y_hat_c = y_predict[:,0,:,:] + 1j*y_predict[:,1,:,:]
+        mse_real = nn.functional.mse_loss(t.real(y_hat_c),t.real(y_c))
+        mse_imag = nn.functional.mse_loss(t.imag(y_hat_c),t.imag(y_c))
+        mse_abs = nn.functional.mse_loss(t.log(t.abs(y_hat_c)),t.log(t.abs(y_c)))
+        phasedist = t.sum(t.abs(y_c)/t.sum(t.abs(y_c)) * t.abs(t.angle(y_c)-t.angle(y_hat_c)))
+        loss = mse_real + mse_imag + 2*mse_abs
+        return loss, mse_real, mse_imag, mse_abs, phasedist, y_hat_c
 
     def configure_optimizers(self):
         optimizer = optim.Adam(self.parameters(), lr=self.learning_rate)
