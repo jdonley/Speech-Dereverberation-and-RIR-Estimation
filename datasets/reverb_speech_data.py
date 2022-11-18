@@ -19,16 +19,14 @@ class DareDataset(Dataset):
         self.stft_format = config['stft_format']
         self.eps = 10**-32
 
-        # Approx. 4 seconds at 16kHz
-        self.nfft = 511     # Makes it a nice 256 long stft (power of 2 for compute efficiency)
-        self.nfrms = 256
+        self.nfft = config['nfft']
+        self.nfrms = config['nfrms']
         self.samplerate = self.speech_dataset[0][1]
 
-        self.rir_duration = 2 * self.samplerate # the longest RIR is just under 2 seconds, so make them all that long
+        self.rir_duration = config['rir_duration']
 
-        self.nhop = 256
-        self.num_speech_samples = 30 #0
-        self.reverb_speech_duration = self.nfrms * (self.nfft+1)//2
+        self.nhop = config['nhop']
+        self.reverb_speech_duration = self.nfrms * self.nhop
 
     def __len__(self):
         return len(self.speech_dataset) * len(self.rir_dataset)
@@ -69,6 +67,12 @@ class DareDataset(Dataset):
             window='hann'
             )
         
+        # import matplotlib.pyplot as plt
+        # plt.imshow(np.log(np.abs(reverb_speech_stft)), aspect='auto')
+        # plt.show()
+        # plt.close()
+
+
         if self.stft_format == 'magphase':
             np.seterr(divide = 'ignore')
             rs_mag = np.log(np.abs(reverb_speech_stft)) # Magnitude
@@ -129,8 +133,10 @@ class DareDataset(Dataset):
             rir,
             pad_width=(0, np.max((0,self.rir_duration - len(rir)))),
             )
+        rir_fft = np.fft.rfft(rir)
+        rir_fft = np.stack((np.real(rir_fft), np.imag(rir_fft)))
             
-        return reverb_speech, speech, speech_wav, rir
+        return reverb_speech, speech, speech_wav, rir_fft[:,:,None]
 
 def DareDataloader(config,type="train"):
     if type != "train":
