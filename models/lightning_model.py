@@ -418,10 +418,12 @@ class SpeechDAREUnet_v2(pl.LightningModule):
             ax8.imshow(np.log(np.abs(b[0,0,:,:] + 1j*b[0,1,:,:])), aspect='auto')
             ax9.imshow(np.log(np.abs(c[0,0,:,:] + 1j*c[0,1,:,:])), aspect='auto')
             rir_est = np.fft.irfft(y_hat_c[0,:,:].cpu().squeeze().detach().numpy())
-            gs = fig.add_gridspec(4,1)
-            ax10 = fig.add_subplot(gs[3, :])
-            ax10.plot(rir_est)
-            plt.savefig("./images/2_"+str(self.current_epoch)+".png",dpi=600)
+            gs = fig.add_gridspec(4,2)
+            ax10 = fig.add_subplot(gs[3, 0])
+            ax10.plot(rir_est[:rir_est.shape[0]//16], linewidth=0.1)
+            ax11 = fig.add_subplot(gs[3, 1])
+            ax11.plot(rir_est, linewidth=0.1)
+            plt.savefig("./images/2_"+str(self.current_epoch)+".png",dpi=1200)
             plt.close()
 
 
@@ -467,8 +469,16 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         mse_real = nn.functional.mse_loss(t.real(y_hat_c),t.real(y_c))
         mse_imag = nn.functional.mse_loss(t.imag(y_hat_c),t.imag(y_c))
         mse_abs = nn.functional.mse_loss(t.log(t.abs(y_hat_c)),t.log(t.abs(y_c)))
-        phasedist = t.sum(t.abs(y_c)/t.sum(t.abs(y_c)) * t.abs(t.angle(y_c)-t.angle(y_hat_c)))
-        loss = mse_real + mse_imag + 2*mse_abs
+        # phasedist = t.sum(t.abs(y_c)/t.sum(t.abs(y_c)) * t.abs(t.angle(y_c)-t.angle(y_hat_c)))
+        
+        y1 = t.sin(t.angle(y_c))
+        y2 = t.cos(t.angle(y_c))
+        y_hat1 = t.sin(t.angle(y_hat_c))
+        y_hat2 = t.cos(t.angle(y_hat_c))
+        phasedist = nn.functional.mse_loss(y1,y_hat1) + nn.functional.mse_loss(y2,y_hat2)
+
+        #loss = mse_real + mse_imag + 2*mse_abs
+        loss = phasedist + mse_abs
         return loss, mse_real, mse_imag, mse_abs, phasedist, y_hat_c
 
     def configure_optimizers(self):
