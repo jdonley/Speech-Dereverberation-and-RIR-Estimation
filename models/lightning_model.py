@@ -424,6 +424,9 @@ class SpeechDAREUnet_v2(pl.LightningModule):
             ax11 = fig.add_subplot(gs[3, 1])
             ax11.plot(rir_est, linewidth=0.1)
             plt.savefig("./images/2_"+str(self.current_epoch)+".png",dpi=1200)
+            
+            tb = self.logger.experiment
+            tb.add_figure('Fig1', plt.gcf())
             plt.close()
 
 
