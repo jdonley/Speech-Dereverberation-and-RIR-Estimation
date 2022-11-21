@@ -1,4 +1,5 @@
 from torch import optim, nn
+from torch.optim import lr_scheduler
 import pytorch_lightning as pl
 import torch as t
 from torchmetrics import ScaleInvariantSignalDistortionRatio
@@ -340,12 +341,17 @@ class SpeechDAREUnet_v1(pl.LightningModule):
 
 
 class SpeechDAREUnet_v2(pl.LightningModule):
-    def __init__(self,learning_rate=1e-3,nfft=2**15-1,nhop=(2**15)/(2**6),nfrms=16):
+    def __init__(self,
+        learning_rate=1e-3,
+        nfft=2**15-1,
+        nhop=(2**15)/(2**6),
+        nfrms=16):
         super().__init__()
         self.name = "SpeechDAREUnet_v2"
 
         self.has_init = False
         self.learning_rate = learning_rate
+        self.lr_scheduler_gamma = 0.1
         self.loss_ind = 0
         self.si_sdr = ScaleInvariantSignalDistortionRatio()
         self.nfft = nfft
@@ -474,7 +480,8 @@ class SpeechDAREUnet_v2(pl.LightningModule):
 
     def configure_optimizers(self):
         optimizer = optim.Adam(self.parameters(), lr=self.learning_rate)
-        return optimizer
+        scheduler = lr_scheduler.ExponentialLR(optimizer, self.lr_scheduler_gamma, self.current_epoch-1)
+        return [optimizer], [scheduler]
 
     def make_plot(self,batch_idx,x,y,y_hat,y_hat_c):
         if (self.current_epoch % 1 == 0) and (batch_idx==0):
