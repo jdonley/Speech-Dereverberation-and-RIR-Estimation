@@ -408,6 +408,8 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         
         self.make_plot(batch_idx, x, y, y_hat, losses[-1])
 
+        self.weight_histograms()
+
         return loss
 
     def test_step(self, batch, batch_idx):
@@ -513,4 +515,34 @@ class SpeechDAREUnet_v2(pl.LightningModule):
             tb.add_figure('Fig1', plt.gcf())
             plt.close()
         return 0
+    
+    def weight_histograms_conv2d(self, writer, step, weights, layer_number):
+        weights_shape = weights.shape
+        num_kernels = weights_shape[0]
+        for k in range(num_kernels):
+            flattened_weights = weights[k].flatten()
+            tag = f"layer_{layer_number}/kernel_{k}"
+            writer.add_histogram(tag, flattened_weights, global_step=step, bins='tensorflow')
+
+    def weight_histograms(self):
+        writer = self.logger.experiment
+        step = self.global_step
+        # Iterate over all model layers
+        layers = []
+        layers.append(self.conv1[0])
+        layers.append(self.conv2[0])
+        layers.append(self.conv3[0])
+        layers.append(self.conv4[0])
+        layers.append(self.deconv1[0])
+        layers.append(self.deconv2[0])
+        layers.append(self.deconv3[0])
+        layers.append(self.deconv4[0])
+        layers.append(self.out1[0])
+        
+        for layer_number in range(len(layers)):
+            layer = layers[layer_number]
+            # Compute weight histograms for appropriate layer
+            if isinstance(layer, nn.Conv2d) or isinstance(layer, nn.ConvTranspose2d):
+                weights = layer.weight
+                self.weight_histograms_conv2d(writer, step, weights, layer_number)
 
