@@ -383,6 +383,7 @@ class SpeechDAREUnet_v2(pl.LightningModule):
 
         loss = self.compute_losses(y, y_hat, loss_type)[self.loss_ind]
         self.log("loss", {loss_type: loss })
+        self.log(loss_type+"_loss", loss )
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -397,6 +398,7 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         losses = self.compute_losses(y, y_hat, loss_type)
         loss = losses[self.loss_ind]
         self.log("loss", {loss_type: loss })
+        self.log(loss_type+"_loss", loss )
         
         self.make_plot(batch_idx, x, y, y_hat, losses[-1])
 
@@ -413,6 +415,7 @@ class SpeechDAREUnet_v2(pl.LightningModule):
 
         loss = self.compute_losses(y, y_hat, loss_type)[self.loss_ind]
         self.log("loss", {loss_type: loss })
+        self.log(loss_type+"_loss", loss )
         return loss
 
     def predict(self, x):
