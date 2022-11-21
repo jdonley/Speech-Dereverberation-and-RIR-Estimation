@@ -357,7 +357,7 @@ class SpeechDAREUnet_v2(pl.LightningModule):
     def init(self):
         k = 5
         s = 2
-        p_drop = 0.0
+        p_drop = 0.5
         leaky_slope = 0.01
         # Small UNet model
         self.conv1 = nn.Sequential(nn.Conv2d(  2,  64, k, stride=s, padding=k//2), nn.LeakyReLU(leaky_slope))
