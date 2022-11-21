@@ -351,7 +351,7 @@ class SpeechDAREUnet_v2(pl.LightningModule):
 
         self.has_init = False
         self.learning_rate = learning_rate
-        self.lr_scheduler_gamma = 0.1
+        self.lr_scheduler_gamma = 0.9
         self.loss_ind = 0
         self.si_sdr = ScaleInvariantSignalDistortionRatio()
         self.nfft = nfft

@@ -1,0 +1,51 @@
+datasets_path: ~/Datasets
+random_seed: 230
+
+stft_format: realimag # realimag or magphase
+rir_duration: 32767
+nfft: 32767
+nhop: 4096
+nfrms: 16
+
+Model:
+  model_name: SpeechDAREUnet_v2
+  learning_rate: 0.01
+
+DataLoader:
+  batch_size: 64
+  num_workers: 8
+  persistent_workers: True
+  shuffle: True
+  drop_last: True
+  pin_memory: True
+
+ModelCheckpoint:
+  monitor: val_loss
+  dirpath: ~/SpeechDARE/checkpoints
+
+LearningRateMonitor:
+  logging_interval: epoch
+
+DDPStrategy:
+  process_group_backend: gloo
+  find_unused_parameters: False
+
+Trainer:
+  limit_train_batches: 2500
+  limit_val_batches: 12
+  limit_test_batches: 125
+  max_epochs: 60
+  log_every_n_steps: 10
+  accelerator: gpu
+  devices: 1
+  profiler: advanced
+
+RichProgressBarTheme:
+  description: green_yellow
+  progress_bar: green1
+  progress_bar_finished: green1
+  progress_bar_pulse: '#6206E0'
+  batch_progress: green_yellow
+  time: grey82
+  processing_speed: grey82
+  metrics: grey82
