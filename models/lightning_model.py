@@ -2,6 +2,8 @@ from torch import optim, nn
 import pytorch_lightning as pl
 import torch as t
 from torchmetrics import ScaleInvariantSignalDistortionRatio
+import matplotlib.pyplot as plt
+import numpy as np
 
 def getModel(model_name=None,learning_rate=1e-3,nfft=511,nhop=256):
     if   model_name == "SpeechDAREUnet_v1": model = SpeechDAREUnet_v1(learning_rate=learning_rate)
@@ -344,6 +346,7 @@ class SpeechDAREUnet_v2(pl.LightningModule):
 
         self.has_init = False
         self.learning_rate = learning_rate
+        self.loss_ind = 0
         self.si_sdr = ScaleInvariantSignalDistortionRatio()
         self.nfft = nfft
         self.nhop = nhop
@@ -370,36 +373,108 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         self.out1 = nn.Sequential(nn.Conv2d(2,   2, (1,self.nfrms), stride=1, padding=0), nn.Tanh())
 
     def training_step(self, batch, batch_idx):
+        loss_type = "train"
         # training_step defines the train loop.
         # it is independent of forward
         x, _, _, y = batch # reverberant speech, clean speech, waveform speech, RIR fft
-        
         x = x.float()
         y = y.float()
         y_hat = self.predict(x.float())
 
-        loss, mse_real, mse_imag, mse_abs, phasedist, _ = self.compute_losses(y, y_hat)
-        
-        self.log("loss", {'train': loss })
-        self.log("train_loss", loss )
-        self.log("train_phasedist", phasedist )
-        self.log("train_mse_abs", mse_abs )
+        loss = self.compute_losses(y, y_hat, loss_type)[self.loss_ind]
+        self.log("loss", {loss_type: loss })
         return loss
 
     def validation_step(self, batch, batch_idx):
+        loss_type = "val"
         # validation_step defines the validation loop.
         # it is independent of forward
         x, _, _, y = batch # reverberant speech, clean speech, waveform speech, RIR fft
+        x = x.float()
+        y = y.float()
+        y_hat = self.predict(x.float())
         
+        losses = self.compute_losses(y, y_hat, loss_type)
+        loss = losses[self.loss_ind]
+        self.log("loss", {loss_type: loss })
+        
+        self.make_plot(batch_idx, x, y, y_hat, losses[-1])
+
+        return loss
+
+    def test_step(self, batch, batch_idx):
+        loss_type = "test"
+        # test_step defines the test loop.
+        # it is independent of forward
+        x, _, _, y = batch # reverberant speech, clean speech, waveform speech, RIR fft
         x = x.float()
         y = y.float()
         y_hat = self.predict(x.float())
 
-        loss, mse_real, mse_imag, mse_abs, phasedist, y_hat_c = self.compute_losses(y, y_hat)
+        loss = self.compute_losses(y, y_hat, loss_type)[self.loss_ind]
+        self.log("loss", {loss_type: loss })
+        return loss
+
+    def predict(self, x):
+        c1Out = self.conv1(x)     # (64 x 64 x  64)
+        c2Out = self.conv2(c1Out) # (16 x 16 x 128)
+        c3Out = self.conv3(c2Out) # ( 4 x  4 x 256)
+        c4Out = self.conv4(c3Out) # ( 1 x  1 x 256)
+
+        d1Out = self.deconv1(c4Out) # (  4 x   4 x 256)
+        d2Out = self.deconv2(t.cat((d1Out, c3Out), dim=1)) # ( 16 x  16 x 128)
+        d3Out = self.deconv3(t.cat((d2Out, c2Out), dim=1)) # ( 64 x  64 x 128)
+        d4Out = self.deconv4(t.cat((d3Out, c1Out), dim=1)) # (256 x 256 x 1)
+        out1Out = self.out1(d4Out) # (256 x 256 x 1)
+        return out1Out
+    
+    def compute_losses(self, y, y_predict, type):
+        y_c = y[:,0,:,:].float() + 1j*y[:,1,:,:].float()
+        y_hat_c = y_predict[:,0,:,:] + 1j*y_predict[:,1,:,:]
         
-        if (self.current_epoch % 50 == 0) and (batch_idx==0):
-            import matplotlib.pyplot as plt
-            import numpy as np
+        mse_real = nn.functional.mse_loss(t.real(y_hat_c),t.real(y_c))
+        mse_imag = nn.functional.mse_loss(t.imag(y_hat_c),t.imag(y_c))
+        mse_abs = nn.functional.mse_loss(t.log(t.abs(y_hat_c)),t.log(t.abs(y_c)))
+        
+        err_real = nn.functional.l1_loss(t.real(y_hat_c),t.real(y_c))
+        err_imag = nn.functional.l1_loss(t.imag(y_hat_c),t.imag(y_c))
+        err_abs = nn.functional.l1_loss(t.log(t.abs(y_hat_c)),t.log(t.abs(y_c)))
+        
+        y1 = t.sin(t.angle(y_c))
+        y2 = t.cos(t.angle(y_c))
+        y_hat1 = t.sin(t.angle(y_hat_c))
+        y_hat2 = t.cos(t.angle(y_hat_c))
+        # err_phase = t.sum(t.abs(y_c)/t.sum(t.abs(y_c)) * t.abs(t.angle(y_c)-t.angle(y_hat_c)))
+        mse_phase = nn.functional.mse_loss(y1,y_hat1) + nn.functional.mse_loss(y2,y_hat2)
+        err_phase = nn.functional.l1_loss(y1,y_hat1) + nn.functional.l1_loss(y2,y_hat2)
+
+        #loss = err_real + err_imag + 2*err_abs
+        loss_mse = mse_abs + mse_phase
+        loss_err = err_abs + err_phase
+
+        self.log(type+"_loss_err", loss_err )
+        self.log(type+"_loss_mse", loss_mse )
+        self.log(type+"_err_phase",err_phase)
+        self.log(type+"_err_abs",  err_abs  )
+        self.log(type+"_err_real", err_real )
+        self.log(type+"_err_imag", err_imag )
+        self.log(type+"_mse_phase",mse_phase)
+        self.log(type+"_mse_abs",  mse_abs  )
+        self.log(type+"_mse_real", mse_real )
+        self.log(type+"_mse_imag", mse_imag )
+
+        return \
+            loss_err, loss_mse, \
+            err_real, err_imag, err_abs, err_phase, \
+            mse_real, mse_imag, mse_abs, mse_phase, \
+            y_hat_c
+
+    def configure_optimizers(self):
+        optimizer = optim.Adam(self.parameters(), lr=self.learning_rate)
+        return optimizer
+
+    def make_plot(self,batch_idx,x,y,y_hat,y_hat_c):
+        if (self.current_epoch % 1 == 0) and (batch_idx==0):
             fh = plt.figure()
             fig, ((ax1, ax2, ax3),(ax4, ax5, ax6),(ax7, ax8, ax9),(ax10,ax11,ax12)) = plt.subplots(4, 3)
             a = x.cpu().detach().numpy()
@@ -425,63 +500,5 @@ class SpeechDAREUnet_v2(pl.LightningModule):
             ax11.plot(rir_est, linewidth=0.1)
             plt.savefig("./images/2_"+str(self.current_epoch)+".png",dpi=1200)
             plt.close()
-
-
-        self.log("loss", {'val': loss })
-        self.log("val_loss", loss )
-        self.log("val_phasedist", phasedist )
-        self.log("val_mse_abs", mse_abs )
-        return loss
-
-    def test_step(self, batch, batch_idx):
-        # test_step defines the test loop.
-        # it is independent of forward
-        x, _, _, y = batch # reverberant speech, clean speech, waveform speech, RIR fft
-        
-        x = x.float()
-        y = y.float()
-        y_hat = self.predict(x.float())
-
-        loss, mse_real, mse_imag, mse_abs, phasedist, _ = self.compute_losses(y, y_hat)
-        
-        self.log("loss", {'test': loss })
-        self.log("test_loss", loss )
-        self.log("test_phasedist", phasedist )
-        self.log("test_mse_abs", mse_abs )
-        return loss
-
-    def predict(self, x):
-        c1Out = self.conv1(x)     # (64 x 64 x  64)
-        c2Out = self.conv2(c1Out) # (16 x 16 x 128)
-        c3Out = self.conv3(c2Out) # ( 4 x  4 x 256)
-        c4Out = self.conv4(c3Out) # ( 1 x  1 x 256)
-
-        d1Out = self.deconv1(c4Out) # (  4 x   4 x 256)
-        d2Out = self.deconv2(t.cat((d1Out, c3Out), dim=1)) # ( 16 x  16 x 128)
-        d3Out = self.deconv3(t.cat((d2Out, c2Out), dim=1)) # ( 64 x  64 x 128)
-        d4Out = self.deconv4(t.cat((d3Out, c1Out), dim=1)) # (256 x 256 x 1)
-        out1Out = self.out1(d4Out) # (256 x 256 x 1)
-        return out1Out
-    
-    def compute_losses(self, y, y_predict):
-        y_c = y[:,0,:,:].float() + 1j*y[:,1,:,:].float()
-        y_hat_c = y_predict[:,0,:,:] + 1j*y_predict[:,1,:,:]
-        mse_real = nn.functional.mse_loss(t.real(y_hat_c),t.real(y_c))
-        mse_imag = nn.functional.mse_loss(t.imag(y_hat_c),t.imag(y_c))
-        mse_abs = nn.functional.mse_loss(t.log(t.abs(y_hat_c)),t.log(t.abs(y_c)))
-        # phasedist = t.sum(t.abs(y_c)/t.sum(t.abs(y_c)) * t.abs(t.angle(y_c)-t.angle(y_hat_c)))
-        
-        y1 = t.sin(t.angle(y_c))
-        y2 = t.cos(t.angle(y_c))
-        y_hat1 = t.sin(t.angle(y_hat_c))
-        y_hat2 = t.cos(t.angle(y_hat_c))
-        phasedist = nn.functional.mse_loss(y1,y_hat1) + nn.functional.mse_loss(y2,y_hat2)
-
-        #loss = mse_real + mse_imag + 2*mse_abs
-        loss = phasedist + mse_abs
-        return loss, mse_real, mse_imag, mse_abs, phasedist, y_hat_c
-
-    def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters(), lr=self.learning_rate)
-        return optimizer
+        return 0
 
