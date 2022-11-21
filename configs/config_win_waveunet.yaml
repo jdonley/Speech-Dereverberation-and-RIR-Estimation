@@ -43,7 +43,7 @@ RichProgressBarTheme:
 
 WaveUnet:
   channels: 1
-  kernel_size_down: 5
+  kernel_size_down: 15
   kernel_size_up: 5
   levels: 12
   features: 24

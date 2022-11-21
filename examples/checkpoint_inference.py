@@ -4,6 +4,7 @@ sys.path.append(
     os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir)))
 from models.lightning_model import *
 from datasets.reverb_speech_data import DareDataset
+import numpy as np
 from utils.utils import getConfig
 import matplotlib.pyplot as plt
 import argparse
@@ -21,8 +22,18 @@ def run_checkpoint(config_path,ckpt_path):
     example = test_loader[0]
     x = example[0]
     y = example[1]
-    print(x)
+    #print(x)
     prediction = model.predict(t.tensor(x[:,:,:,None],dtype=t.float).permute((0,3,1,2)))
+
+    #loss   = nn.functional.mse_loss(prediction[0,0,:,:].squeeze().detach().numpy(), y[0,:,:].squeeze())
+    loss = np.mean(np.square(np.subtract(prediction[0,0,:,:].squeeze().detach().numpy(), y[0,:,:].squeeze())))
+    print("************************")
+    print("prediction.shape = " + str(prediction.shape))
+    print("clean.shape = " + str(y.shape))
+    
+    print("loss = " + str(loss))
+    print("************************")
+
 
     fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
     ax1.imshow(x[0,:,:].squeeze(), origin='lower')

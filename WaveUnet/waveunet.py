@@ -252,7 +252,10 @@ class Waveunet(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         # training_step defines the train loop.
         # it is independent of forward (but uses it)
-        x, y, z = batch # reverberant speech, clean speech, RIR # Currently this won't work because of the spectrograms
+        x, y, z = batch # reverberant speech, clean speech, RIR # should be all time domain
+        print('x.shape = ' + str(x.shape))
+        print('y.shape = ' + str(y.shape))
+        print('z.shape = ' + str(z.shape))
 
         # batch_size x 1 (mag stft only) x 256 x 256
         x = x[:,[0],:,:].float()
