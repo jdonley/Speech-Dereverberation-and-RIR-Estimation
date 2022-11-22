@@ -382,12 +382,12 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         loss_type = "train"
         # training_step defines the train loop.
         # it is independent of forward
-        x, _, _, y = batch # reverberant speech, clean speech, waveform speech, RIR fft
+        x, _, _, y, yt = batch # reverberant speech, clean speech, waveform speech, RIR fft
         x = x.float()
         y = y.float()
         y_hat = self.predict(x.float())
 
-        loss = self.compute_losses(y, y_hat, loss_type)[self.loss_ind]
+        loss = self.compute_losses(y, yt, y_hat, loss_type)[self.loss_ind]
         self.log("loss", {loss_type: loss })
         self.log(loss_type+"_loss", loss )
         return loss
@@ -396,12 +396,12 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         loss_type = "val"
         # validation_step defines the validation loop.
         # it is independent of forward
-        x, _, _, y = batch # reverberant speech, clean speech, waveform speech, RIR fft
+        x, _, _, y, yt = batch # reverberant speech, clean speech, waveform speech, RIR fft
         x = x.float()
         y = y.float()
         y_hat = self.predict(x.float())
         
-        losses = self.compute_losses(y, y_hat, loss_type)
+        losses = self.compute_losses(y, yt, y_hat, loss_type)
         loss = losses[self.loss_ind]
         self.log("loss", {loss_type: loss })
         self.log(loss_type+"_loss", loss )
@@ -416,12 +416,12 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         loss_type = "test"
         # test_step defines the test loop.
         # it is independent of forward
-        x, _, _, y = batch # reverberant speech, clean speech, waveform speech, RIR fft
+        x, _, _, y, yt = batch # reverberant speech, clean speech, waveform speech, RIR fft
         x = x.float()
         y = y.float()
         y_hat = self.predict(x.float())
 
-        loss = self.compute_losses(y, y_hat, loss_type)[self.loss_ind]
+        loss = self.compute_losses(y, yt, y_hat, loss_type)[self.loss_ind]
         self.log("loss", {loss_type: loss })
         self.log(loss_type+"_loss", loss )
         return loss
@@ -439,9 +439,13 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         out1Out = self.out1(d4Out) # (256 x 256 x 1)
         return out1Out
     
-    def compute_losses(self, y, y_predict, type):
+    def compute_losses(self, y, yt, y_predict, type):
         y_c = y[:,0,:,:].float() + 1j*y[:,1,:,:].float()
         y_hat_c = y_predict[:,0,:,:] + 1j*y_predict[:,1,:,:]
+        
+        y_hat_c_t = t.fft.irfft(y_hat_c,n=yt.shape[1],dim=1).squeeze()
+        mse_time = nn.functional.mse_loss(y_hat_c_t, yt) * 1e5
+        err_time = nn.functional.l1_loss(y_hat_c_t, yt) * 1e3
         
         mse_real = nn.functional.mse_loss(t.real(y_hat_c),t.real(y_c))
         mse_imag = nn.functional.mse_loss(t.imag(y_hat_c),t.imag(y_c))
@@ -460,8 +464,8 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         err_phase = nn.functional.l1_loss(y1,y_hat1) + nn.functional.l1_loss(y2,y_hat2)
 
         #loss = err_real + err_imag + 2*err_abs
-        loss_mse = mse_abs + mse_phase
-        loss_err = err_abs + err_phase
+        loss_mse = mse_abs + mse_phase + mse_time
+        loss_err = err_abs + err_phase + err_time
 
         self.log(type+"_loss_err", loss_err )
         self.log(type+"_loss_mse", loss_mse )
@@ -469,15 +473,17 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         self.log(type+"_err_abs",  err_abs  )
         self.log(type+"_err_real", err_real )
         self.log(type+"_err_imag", err_imag )
+        self.log(type+"_err_time", err_time )
         self.log(type+"_mse_phase",mse_phase)
         self.log(type+"_mse_abs",  mse_abs  )
         self.log(type+"_mse_real", mse_real )
         self.log(type+"_mse_imag", mse_imag )
+        self.log(type+"_mse_time", mse_time )
 
         return \
             loss_err, loss_mse, \
-            err_real, err_imag, err_abs, err_phase, \
-            mse_real, mse_imag, mse_abs, mse_phase, \
+            err_real, err_imag, err_abs, err_phase, err_time, \
+            mse_real, mse_imag, mse_abs, mse_phase, mse_time, \
             y_hat_c
 
     def configure_optimizers(self):

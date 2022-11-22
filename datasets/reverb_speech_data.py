@@ -44,6 +44,8 @@ class DareDataset(Dataset):
             orig_sr=self.rir_dataset.samplerate,
             target_sr=self.samplerate,
             res_type='soxr_hq')
+        rir = rir - np.mean(rir)
+        rir = rir / np.max(np.abs(rir))
 
         reverb_speech = signal.convolve(speech, rir, method='fft')
 
@@ -135,10 +137,8 @@ class DareDataset(Dataset):
             )
         rir_fft = np.fft.rfft(rir)
         rir_fft = np.stack((np.real(rir_fft), np.imag(rir_fft)))
-        rir_fft = rir_fft - np.mean(rir_fft)
-        rir_fft = rir_fft / np.max(np.abs(rir_fft))
-            
-        return reverb_speech, speech, speech_wav, rir_fft[:,:,None]
+        
+        return reverb_speech, speech, speech_wav, rir_fft[:,:,None], rir
 
 def DareDataloader(config,type="train"):
     if type != "train":
