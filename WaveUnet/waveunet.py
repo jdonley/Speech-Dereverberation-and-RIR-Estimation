@@ -230,12 +230,12 @@ class Waveunet(pl.LightningModule):
 
     def forward(self, x, inst=None):
         curr_input_size = x.shape[-1]
-        print("********************")
-        print("input shape = " + str(x.shape))
-        print("curr_input_size = " + str(curr_input_size))
-        print("self.input_size = " + str(self.input_size))
-        print("self.output_size = " + str(self.output_size))
-        print("********************")
+        #print("********************")
+        #print("input shape = " + str(x.shape))
+        #print("curr_input_size = " + str(curr_input_size))
+        #print("self.input_size = " + str(self.input_size))
+        #print("self.output_size = " + str(self.output_size))
+        #print("********************")
         assert(curr_input_size == self.input_size) # User promises to feed the proper input himself, to get the pre-calculated (NOT the originally desired) output size
 
         if self.separate:
@@ -253,23 +253,46 @@ class Waveunet(pl.LightningModule):
         # training_step defines the train loop.
         # it is independent of forward (but uses it)
         x, y, z = batch # reverberant speech, clean speech, RIR # should be all time domain
-        print('x.shape = ' + str(x.shape))
-        print('y.shape = ' + str(y.shape))
-        print('z.shape = ' + str(z.shape))
 
-        # batch_size x 1 (mag stft only) x 256 x 256
-        x = x[:,[0],:,:].float()
-        y = y[:,[0],:,:].float()
-        z = None # need to fill this in
+
+        # convert from (batch_size, num_samples) to (1, batch_size, num_samples)
+        x = x[:, None, :].float()
+        y = y[:, None, :].float()
+        z = z[:, None, :].float()
+
+        #print('x.shape = ' + str(x.shape))
+        #print('y.shape = ' + str(y.shape))
+        #print('z.shape = ' + str(z.shape))        
         
         #y_hat, z_hat = self.predict(x)
         out  = self.forward(x)
-        loss = nn.functional.mse_loss(out["speech"], y) + nn.functional.mse_loss(out["rir"], z)
+        #print("out[speech].shape = " + str(out["speech"].shape))
+        #print("out[rir].shape = " + str(out["rir"].shape))
+        #loss = nn.functional.mse_loss(out["speech"], y) + nn.functional.mse_loss(out["rir"], z)
+        loss = nn.functional.mse_loss(out["speech"], centre_crop(y, out["speech"])) + nn.functional.mse_loss(out["rir"], z)
         
         self.log("loss", {'train': loss })
         self.log("train_loss", loss )
         return loss
-           
+
+    def validation_step(self, batch, batch_idx):
+        # validation_step defines the train loop.
+        # it is independent of forward (but uses it)
+        x, y, z = batch # reverberant speech, clean speech, RIR # should be all time domain
+
+        # convert from (batch_size, num_samples) to (1, batch_size, num_samples)
+        x = x[:, None, :].float()
+        y = y[:, None, :].float()
+        z = z[:, None, :].float()
+
+        out  = self.forward(x)
+        loss = nn.functional.mse_loss(out["speech"], centre_crop(y, out["speech"])) + nn.functional.mse_loss(out["rir"], z)
+        
+        self.log("loss", {'val': loss })
+        self.log("val_loss", loss )
+        return loss
+
+
     def configure_optimizers(self):
         optimizer = optim.Adam(self.parameters(), lr=self.learning_rate)
         return optimizer

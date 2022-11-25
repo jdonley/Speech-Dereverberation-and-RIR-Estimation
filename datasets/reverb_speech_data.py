@@ -57,10 +57,22 @@ class DareDataset(Dataset):
 
 
         reverb_speech = signal.convolve(speech, rir, method='fft')
+        #print('speech.shape = ' + str(speech.shape))
+        #print('reverb_speech.shape = ' + str(reverb_speech.shape))
 
         if self.model == 'Waveunet':
+            reverb_speech = np.pad(
+                reverb_speech,
+                pad_width=(0, np.max((0,135141 - len(reverb_speech)))),
+                )
             reverb_speech = reverb_speech[:135141] # expected input size given 15 up, 5 down filters and 2sec output
+
+            speech = np.pad(
+                speech,
+                pad_width=(0, np.max((0,135141 - len(speech)))),
+                )
             speech = speech[:135141]               # expected input size given 15 up, 5 down filters and 2sec output
+
             rir = np.pad(
                 rir,
                 pad_width=(0, np.max((0,32777 - len(rir)))),
