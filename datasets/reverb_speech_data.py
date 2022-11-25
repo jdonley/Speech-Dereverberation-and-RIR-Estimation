@@ -24,6 +24,7 @@ class DareDataset(Dataset):
         self.samplerate = self.speech_dataset[0][1]
 
         self.rir_duration = config['rir_duration']
+        self.rir_sos = signal.butter(6, 40, 'hp', fs=self.samplerate, output='sos')
 
         self.nhop = config['nhop']
         self.reverb_speech_duration = self.nfrms * self.nhop
@@ -47,13 +48,18 @@ class DareDataset(Dataset):
         rir = rir - np.mean(rir)
         rir = rir / np.max(np.abs(rir))
         maxI = np.argmax(np.abs(rir))
+
+        rir = rir[50:]
+        rir = rir * signal.windows.tukey(rir.shape[0], alpha=2*50/rir.shape[0], sym=True) # Taper 50 samples at the beginning and end of the RIR
         
+        rir = signal.sosfilt(self.rir_sos, rir)
+
         rir = np.pad(
             rir,
             pad_width=(0, np.max((0,self.rir_duration - len(rir)))),
             )
         
-        rir = np.concatenate((np.zeros(3200-maxI),rir[50:-3200+maxI+50]))
+        rir = np.concatenate((np.zeros(3200-maxI),rir[:-3200+maxI]))
 
         reverb_speech = signal.convolve(speech, rir, method='fft')
 
