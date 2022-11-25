@@ -46,6 +46,14 @@ class DareDataset(Dataset):
             res_type='soxr_hq')
         rir = rir - np.mean(rir)
         rir = rir / np.max(np.abs(rir))
+        maxI = np.argmax(np.abs(rir))
+        
+        rir = np.pad(
+            rir,
+            pad_width=(0, np.max((0,self.rir_duration - len(rir)))),
+            )
+        
+        rir = np.concatenate((np.zeros(3200-maxI),rir[50:-3200+maxI+50]))
 
         reverb_speech = signal.convolve(speech, rir, method='fft')
 
@@ -131,10 +139,6 @@ class DareDataset(Dataset):
         else:
             raise Exception("Unknown STFT format. Specify 'realimag' or 'magphase'.")
         
-        rir = np.pad(
-            rir,
-            pad_width=(0, np.max((0,self.rir_duration - len(rir)))),
-            )
         rir_fft = np.fft.rfft(rir)
         rir_fft = np.stack((np.real(rir_fft), np.imag(rir_fft)))
         rir_fft = rir_fft - np.mean(rir_fft)
