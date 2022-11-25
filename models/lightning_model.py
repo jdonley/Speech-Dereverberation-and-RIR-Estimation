@@ -452,6 +452,8 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         mse_time_abs_log = nn.functional.mse_loss(y_hat_c_t_abs_log, yt_abs_log)
         err_time_abs_log = nn.functional.l1_loss(y_hat_c_t_abs_log, yt_abs_log)
         kld_time_abs_log = nn.functional.kl_div(y_hat_c_t_abs_log,yt_abs_log,log_target=True).abs()
+
+        err_timedelay = t.log(t.abs(t.argmax(y_hat_c_t) - t.argmax(yt))+1)
         
         mse_real = nn.functional.mse_loss(t.real(y_hat_c),t.real(y_c))
         mse_imag = nn.functional.mse_loss(t.imag(y_hat_c),t.imag(y_c))
@@ -474,8 +476,8 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         err_phase_un = nn.functional.l1_loss(y_a,y_hat_a)
 
         #loss = err_real + err_imag + 2*err_abs
-        loss_err = err_abs + err_phase + err_phase_un * 1e-4
-        loss_mse = mse_abs + mse_phase + mse_phase_un * 1e-4
+        loss_err = err_abs + err_phase + err_timedelay #+ err_phase_un * 1e-4
+        loss_mse = mse_abs + mse_phase + err_timedelay #+ mse_phase_un * 1e-4
 
         self.log(type+"_loss_err", loss_err )
         self.log(type+"_loss_mse", loss_mse )
@@ -494,12 +496,14 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         self.log(type+"_mse_time", mse_time )
         self.log(type+"_mse_time_abs_log", mse_time_abs_log )
         self.log(type+"_kld_time_abs_log", kld_time_abs_log )
+        self.log(type+"_err_timedelay", err_timedelay )
+        
 
         return \
             loss_err, loss_mse, \
             err_real, err_imag, err_abs, err_phase, err_phase_un, err_time, err_time_abs_log, \
             mse_real, mse_imag, mse_abs, mse_phase, mse_phase_un, mse_time, mse_time_abs_log, \
-            kld_time_abs_log, \
+            kld_time_abs_log, err_timedelay, \
             y_hat_c
 
     def configure_optimizers(self):

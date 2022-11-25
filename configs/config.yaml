@@ -30,6 +30,11 @@ DDPStrategy:
   process_group_backend: gloo
   find_unused_parameters: False
 
+AdvancedProfiler:
+  dirpath: null
+  filename: advanced_profiler.txt
+  line_count_restriction: 1.0
+
 Trainer:
   limit_train_batches: 10000
   limit_val_batches: 50
@@ -39,7 +44,6 @@ Trainer:
   log_every_n_steps: 10
   accelerator: gpu
   devices: 1
-  profiler: advanced
 
 RichProgressBarTheme:
   description: green_yellow

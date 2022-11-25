@@ -6,6 +6,7 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.strategies.ddp import DDPStrategy
+from pytorch_lightning.profiler import AdvancedProfiler
 from utils.utils import getConfig
 from utils.progress_bar import getProgressBar
 import random
@@ -38,10 +39,14 @@ def main(args):
     # Strategy
     strategy = DDPStrategy(**cfg['DDPStrategy'])
 
+    # Profiler
+    profiler = AdvancedProfiler(**cfg['AdvancedProfiler'])
+
     # PyTorch Lightning Train
     trainer = pl.Trainer(
         **cfg['Trainer'],
         strategy=strategy,
+        profiler=profiler,
         callbacks=[ckpt_callback,lr_monitor,getProgressBar(cfg)]
         )
 
