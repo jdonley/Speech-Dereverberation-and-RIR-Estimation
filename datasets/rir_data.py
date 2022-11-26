@@ -11,7 +11,7 @@ import shutil
 
 class MitIrSurveyDataset(Dataset):
     def __init__(self, config, type="train", split_train_val_test_p=[80,10,10], device='cuda', download=True):
-        self.root_dir = Path(config['datasets_path'],'MIT_IR_Survey')
+        self.root_dir = Path(os.path.expanduser(config['datasets_path']),'MIT_IR_Survey')
         self.type = type
 
         if download and not os.path.isdir(str(self.root_dir)): # If the path doesn't exist, download the dataset if set to true
@@ -50,6 +50,7 @@ class MitIrSurveyDataset(Dataset):
 
     def download_mit_ir_survey(self, local_path):
         url = "https://mcdermottlab.mit.edu/Reverb/IRMAudio/Audio.zip"
+        local_path = os.path.expanduser(local_path)
 
         with requests.get(url, stream=True) as r:
             r.raise_for_status()

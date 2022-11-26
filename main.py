@@ -4,7 +4,9 @@ from datasets.reverb_speech_data import DareDataModule
 import torch as t
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.strategies.ddp import DDPStrategy
+from pytorch_lightning.profiler import AdvancedProfiler
 from utils.utils import getConfig
 from utils.progress_bar import getProgressBar
 import random
@@ -30,15 +32,22 @@ def main(args):
         **cfg['ModelCheckpoint'],
         filename = model.name + "-{epoch:02d}-{val_loss:.2f}",
     )
+    
+    # Learning Rate Monitor
+    lr_monitor = LearningRateMonitor(**cfg['LearningRateMonitor'])
 
     # Strategy
     strategy = DDPStrategy(**cfg['DDPStrategy'])
+
+    # Profiler
+    profiler = AdvancedProfiler(**cfg['AdvancedProfiler'])
 
     # PyTorch Lightning Train
     trainer = pl.Trainer(
         **cfg['Trainer'],
         strategy=strategy,
-        callbacks=[ckpt_callback,getProgressBar(cfg)]
+        profiler=profiler,
+        callbacks=[ckpt_callback,lr_monitor,getProgressBar(cfg)]
         )
 
     trainer.fit(
