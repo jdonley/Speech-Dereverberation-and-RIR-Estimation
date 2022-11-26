@@ -1,4 +1,4 @@
-datasets_path: /mnt/c/Datasets
+datasets_path: ~/Datasets
 random_seed: 230
 
 stft_format: realimag # realimag or magphase
@@ -12,8 +12,8 @@ Model:
   learning_rate: 0.01
 
 DataLoader:
-  batch_size: 16
-  num_workers: 64
+  batch_size: 64
+  num_workers: 8
   persistent_workers: True
   shuffle: True
   drop_last: True
@@ -36,10 +36,10 @@ AdvancedProfiler:
   line_count_restriction: 1.0
 
 Trainer:
-  limit_train_batches: 10
-  limit_val_batches: 2
-  limit_test_batches: 2
-  max_epochs: 10
+  limit_train_batches: 2500
+  limit_val_batches: 12
+  limit_test_batches: 125
+  max_epochs: 100
   accumulate_grad_batches: 1
   log_every_n_steps: 10
   accelerator: gpu

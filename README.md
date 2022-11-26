@@ -18,7 +18,7 @@ conda activate SpeechDARE
 conda install -y python=3.8 anaconda
 conda install -y pytorch torchvision torchaudio pytorch-cuda=11.6 -c pytorch -c nvidia
 conda install -y pytorch-lightning -c conda-forge
-conda install -y numpy pyyaml matplotlib librosa -c conda-forge
+conda install -y numpy pyyaml matplotlib librosa torchmetrics -c conda-forge
 pip install soxr rich
 ```
 
