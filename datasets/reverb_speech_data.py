@@ -49,16 +49,15 @@ class DareDataset(Dataset):
         rir = rir / np.max(np.abs(rir))
         maxI = np.argmax(np.abs(rir))
 
-        rir = rir[50:]
-        rir = rir * signal.windows.tukey(rir.shape[0], alpha=2*50/rir.shape[0], sym=True) # Taper 50 samples at the beginning and end of the RIR
-        
+        rir = rir[25:]
+        rir = rir * signal.windows.tukey(rir.shape[0], alpha=2*25/rir.shape[0], sym=True) # Taper 50 samples at the beginning and end of the RIR
         rir = signal.sosfilt(self.rir_sos, rir)
-
+        maxI = np.argmax(np.abs(rir))
+        rir = rir / rir[maxI]
         rir = np.pad(
             rir,
             pad_width=(0, np.max((0,self.rir_duration - len(rir)))),
             )
-        
         rir = np.concatenate((np.zeros(3200-maxI),rir[:-3200+maxI]))
 
         reverb_speech = signal.convolve(speech, rir, method='fft')
