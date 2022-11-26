@@ -6,12 +6,12 @@ Model:
   learning_rate: 0.001
 
 DataLoader:
-  batch_size: 4
+  batch_size: 8
   shuffle: True
   drop_last: True
-  num_workers: 0
+  num_workers: 12
   pin_memory: True
-  persistent_workers: False
+  persistent_workers: True
 
 ModelCheckpoint:
   monitor: val_loss
@@ -22,9 +22,9 @@ DDPStrategy:
   find_unused_parameters: False
 
 Trainer:
-  limit_train_batches: 40000
-  limit_val_batches: 2000
-  limit_test_batches: 2000
+  limit_train_batches: 20000
+  limit_val_batches: 100
+  limit_test_batches: 100
   max_epochs: 20
   log_every_n_steps: 10
   accelerator: gpu
