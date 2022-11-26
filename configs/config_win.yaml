@@ -9,7 +9,7 @@ nfrms: 16
 
 Model:
   model_name: SpeechDAREUnet_v2
-  learning_rate: 0.0002
+  learning_rate: 0.01
 
 DataLoader:
   batch_size: 16
@@ -21,21 +21,29 @@ DataLoader:
 
 ModelCheckpoint:
   monitor: val_loss
-  dirpath: 'C:\SpeechDARE\checkpoints'
+  dirpath: checkpoints
+
+LearningRateMonitor:
+  logging_interval: epoch
 
 DDPStrategy:
   process_group_backend: gloo
   find_unused_parameters: False
 
+AdvancedProfiler:
+  dirpath: null
+  filename: advanced_profiler.txt
+  line_count_restriction: 1.0
+
 Trainer:
   limit_train_batches: 10000
   limit_val_batches: 50
   limit_test_batches: 500
-  max_epochs: 20
+  max_epochs: 100
+  accumulate_grad_batches: 1
   log_every_n_steps: 10
   accelerator: gpu
   devices: 1
-  profiler: advanced
 
 RichProgressBarTheme:
   description: green_yellow
