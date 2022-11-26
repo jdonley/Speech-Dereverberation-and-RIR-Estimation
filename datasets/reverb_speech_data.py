@@ -64,17 +64,11 @@ class DareDataset(Dataset):
             )
         rir = np.concatenate((np.zeros(3200-maxI),rir[:-3200+maxI]))
 
-        #print('**************************')
-        #print('self.samplerate = ' + str(self.samplerate))
-        #print('speech.shape = ' + str(speech.shape))
-        #print('rir.shape = ' + str(rir.shape))
-
-
         reverb_speech = signal.convolve(speech, rir, method='fft')
-        #print('speech.shape = ' + str(speech.shape))
-        #print('reverb_speech.shape = ' + str(reverb_speech.shape))
 
-        if self.model == 'Waveunet':
+        # This is sloppy but effective. I need to process the data differently to use it with the wave-u-net,
+        # so I do that then return.
+        if self.model == 'Waveunet': 
             reverb_speech = np.pad(
                 reverb_speech,
                 pad_width=(0, np.max((0,135141 - len(reverb_speech)))),
@@ -93,27 +87,27 @@ class DareDataset(Dataset):
                 )            
             return reverb_speech, speech, rir 
 
-        else:    
-            reverb_speech = np.pad(
-                reverb_speech,
-                pad_width=(0, np.max((0,self.reverb_speech_duration - len(reverb_speech)))),
-                )
-            reverb_speech = reverb_speech[:self.reverb_speech_duration]
-            
-            speech = np.pad(
-                speech,
-                pad_width=(0, np.max((0,self.reverb_speech_duration - len(speech)))),
-                )
-            speech = speech[:self.reverb_speech_duration]
+        reverb_speech = np.pad(
+            reverb_speech,
+            pad_width=(0, np.max((0,self.reverb_speech_duration - len(reverb_speech)))),
+            )
+        reverb_speech = reverb_speech[:self.reverb_speech_duration]
+        
+        speech = np.pad(
+            speech,
+            pad_width=(0, np.max((0,self.reverb_speech_duration - len(speech)))),
+            )
+        speech = speech[:self.reverb_speech_duration]
 
-            reverb_speech_stft = librosa.stft(
-                reverb_speech,
-                n_fft=self.nfft,
-                hop_length=self.nhop,
-                win_length=self.nfft,
-                window='hann'
-                )
+        reverb_speech_stft = librosa.stft(
+            reverb_speech,
+            n_fft=self.nfft,
+            hop_length=self.nhop,
+            win_length=self.nfft,
+            window='hann'
+            )
 
+        if self.stft_format == 'magphase':
             np.seterr(divide = 'ignore')
             rs_mag = np.log(np.abs(reverb_speech_stft)) # Magnitude
             np.seterr(divide = 'warn')
@@ -123,7 +117,7 @@ class DareDataset(Dataset):
             rs_mag = rs_mag / rs_mag.max() / 2 - 1
 
             reverb_speech = np.stack((rs_mag, np.angle(reverb_speech_stft)))
-        
+    
         elif self.stft_format == 'realimag':
             reverb_speech = np.stack((np.real(reverb_speech_stft), np.imag(reverb_speech_stft)))
             reverb_speech = reverb_speech - np.mean(reverb_speech)
