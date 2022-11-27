@@ -1,6 +1,12 @@
 datasets_path: 'C:\Datasets'
 random_seed: 230
 
+stft_format: realimag # realimag or magphase
+rir_duration: 32767
+nfft: 32767
+nhop: 4096
+nfrms: 16
+
 Model:
   model_name: Waveunet
   learning_rate: 0.001
@@ -17,9 +23,17 @@ ModelCheckpoint:
   monitor: val_loss
   dirpath: 'C:\SpeechDARE\checkpoints'
 
+LearningRateMonitor:
+  logging_interval: epoch
+
 DDPStrategy:
   process_group_backend: gloo
   find_unused_parameters: False
+
+AdvancedProfiler:
+  dirpath: null
+  filename: advanced_profiler.txt
+  line_count_restriction: 1.0
 
 Trainer:
   limit_train_batches: 20000

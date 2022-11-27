@@ -255,7 +255,7 @@ class Waveunet(pl.LightningModule):
         x, y, z = batch # reverberant speech, clean speech, RIR # should be all time domain
 
 
-        # convert from (batch_size, num_samples) to (1, batch_size, num_samples)
+        # convert from (batch_size, num_samples) to (batch_size, 1, num_samples)
         x = x[:, None, :].float()
         y = y[:, None, :].float()
         z = z[:, None, :].float()
@@ -269,10 +269,22 @@ class Waveunet(pl.LightningModule):
         #print("out[speech].shape = " + str(out["speech"].shape))
         #print("out[rir].shape = " + str(out["rir"].shape))
         #loss = nn.functional.mse_loss(out["speech"], y) + nn.functional.mse_loss(out["rir"], z)
-        loss = nn.functional.mse_loss(out["speech"], centre_crop(y, out["speech"])) + nn.functional.mse_loss(out["rir"], z)
         
+        speechLoss = nn.functional.mse_loss(out["speech"], centre_crop(y, out["speech"]))
+        rirLoss    = nn.functional.mse_loss(out["rir"], z)
+        
+        #loss = nn.functional.mse_loss(out["speech"], centre_crop(y, out["speech"])) + nn.functional.mse_loss(out["rir"], z)
+        #loss = speechLoss + 5.0*rirLoss # 5x RIR seems to put them in better balance but worked poorly
+        loss = speechLoss # Can I get better clean speech by ignoring the RIR?
+        
+        #print("Speech loss = " + str(speechLoss))
+        #print("RIR loss    = " + str(rirLoss))
+
         self.log("loss", {'train': loss })
         self.log("train_loss", loss )
+        self.log("train_speechLoss", speechLoss )
+        self.log("train_rirLoss", rirLoss )
+
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -280,16 +292,45 @@ class Waveunet(pl.LightningModule):
         # it is independent of forward (but uses it)
         x, y, z = batch # reverberant speech, clean speech, RIR # should be all time domain
 
-        # convert from (batch_size, num_samples) to (1, batch_size, num_samples)
+        # convert from (batch_size, num_samples) to (batch_size, 1, num_samples)
         x = x[:, None, :].float()
         y = y[:, None, :].float()
         z = z[:, None, :].float()
 
         out  = self.forward(x)
-        loss = nn.functional.mse_loss(out["speech"], centre_crop(y, out["speech"])) + nn.functional.mse_loss(out["rir"], z)
+        speechLoss = nn.functional.mse_loss(out["speech"], centre_crop(y, out["speech"]))
+        rirLoss    = nn.functional.mse_loss(out["rir"], z)
+        #loss = speechLoss + 5.0*rirLoss
+        loss = speechLoss
         
         self.log("loss", {'val': loss })
         self.log("val_loss", loss )
+        self.log("val_speechLoss", speechLoss )
+        self.log("val_rirLoss", rirLoss )
+
+        return loss
+
+    def test_step(self, batch, batch_idx):
+        # test_step for trainer.test()
+        # it is independent of forward (but uses it)
+        x, y, z = batch # reverberant speech, clean speech, RIR # should be all time domain
+
+        # convert from (batch_size, num_samples) to (batch_size, 1, num_samples)
+        x = x[:, None, :].float()
+        y = y[:, None, :].float()
+        z = z[:, None, :].float()
+
+        out  = self.forward(x)
+        speechLoss = nn.functional.mse_loss(out["speech"], centre_crop(y, out["speech"]))
+        rirLoss    = nn.functional.mse_loss(out["rir"], z)
+        #loss = speechLoss + 5.0*rirLoss
+        loss = speechLoss
+        
+        self.log("loss", {'test': loss })
+        self.log("test_loss", loss )
+        self.log("test_speechLoss", speechLoss )
+        self.log("test_rirLoss", rirLoss )
+
         return loss
 
 

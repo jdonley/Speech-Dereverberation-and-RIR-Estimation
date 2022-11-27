@@ -37,7 +37,7 @@ def run_checkpoint(config_path,ckpt_path):
     model.eval()
 
     test_loader  = DareDataset(cfg,"test")
-    example = test_loader[4] # was 0
+    example = test_loader[11] # was 0
     x = example[0]
     y = example[1]
     z = example[2]
@@ -77,14 +77,15 @@ def run_checkpoint(config_path,ckpt_path):
 
     plt.show()
 
-    revSpeech = 'C:\\Users\\PCALAMIA\\Dropbox (Meta)\\StanfordAI\\NN\\Project\\revSpeech_4.wav'
-    cleanSpeech = 'C:\\Users\\PCALAMIA\\Dropbox (Meta)\\StanfordAI\\NN\\Project\\cleanSpeech_4.wav'
-    outFile = 'C:\\Users\\PCALAMIA\\Dropbox (Meta)\\StanfordAI\\NN\\Project\\First_waveunet_out_4.wav'
-    outWav  = prediction["speech"].squeeze().detach().numpy()[None, :]
+    revSpeech   = 'C:\\Users\\PCALAMIA\\Dropbox (Meta)\\StanfordAI\\NN\\Project\\revSpeech_11_lr1e-4.wav'
+    cleanSpeech = 'C:\\Users\\PCALAMIA\\Dropbox (Meta)\\StanfordAI\\NN\\Project\\cleanSpeech_11_lr1e-4.wav'
+    predSpeech  = 'C:\\Users\\PCALAMIA\\Dropbox (Meta)\\StanfordAI\\NN\\Project\\predictedSpeech_11_lr1e-4.wav'
+
+    outWav      = prediction["speech"].squeeze().detach().numpy()[None, :]
     
     #print("outWav.shape = " + str(outWav.shape))
     #print(outWav.dtype)
-    ta.save(outFile, t.tensor(0.99*outWav/(np.max(np.abs(outWav)))), 16000)
+    ta.save(predSpeech, t.tensor(0.99*outWav/(np.max(np.abs(outWav)))), 16000)
     ta.save(revSpeech, x.squeeze()[None, :], 16000)
     ta.save(cleanSpeech, y.squeeze()[None, :], 16000)
 

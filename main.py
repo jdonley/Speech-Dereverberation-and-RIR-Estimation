@@ -41,14 +41,16 @@ def main(args):
         target_outputs   = int(output_size * sr)
         model            = Waveunet(channels, num_features, channels, instruments, kernel_size_down=kernel_size_down, kernel_size_up=kernel_size_up, target_output_size=target_outputs, conv_type=conv_type, res=res, separate=False)
 
-
+    print("Using model " + model.name)
     # Data Module
     datamodule = DareDataModule(config=cfg)
 
     # Checkpoints
     ckpt_callback = ModelCheckpoint(
         **cfg['ModelCheckpoint'],
-        filename = model.name + "-{epoch:02d}-{val_loss:.2f}",
+        filename = model.name + "-{epoch:02d}-{val_loss:.4f}",
+        save_top_k=-1,
+        every_n_epochs=1
     )
     
     # Learning Rate Monitor
@@ -59,12 +61,12 @@ def main(args):
 
     # Profiler
     profiler = AdvancedProfiler(**cfg['AdvancedProfiler'])
-
+    
     # PyTorch Lightning Train
     trainer = pl.Trainer(
         **cfg['Trainer'],
         strategy=strategy,
-        profiler=profiler,
+        #profiler=profiler,
         callbacks=[ckpt_callback,lr_monitor,getProgressBar(cfg)]
         )
 
