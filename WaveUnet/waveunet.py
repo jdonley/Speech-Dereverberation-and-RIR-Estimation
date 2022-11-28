@@ -7,6 +7,8 @@ from WaveUnet.crop import centre_crop
 from WaveUnet.resample import Resample1d
 from WaveUnet.conv import ConvLayer
 
+import auraloss # for MR-STFT loss 
+
 class UpsamplingBlock(nn.Module):
     def __init__(self, n_inputs, n_shortcut, n_outputs, kernel_size, stride, depth, conv_type, res):
         super(UpsamplingBlock, self).__init__()
@@ -277,6 +279,15 @@ class Waveunet(pl.LightningModule):
         #loss = speechLoss + 5.0*rirLoss # 5x RIR seems to put them in better balance but worked poorly
         loss = speechLoss # Can I get better clean speech by ignoring the RIR?
         
+        #MR-STFT loss
+        fft_sizes   = [16, 128, 512, 2048]
+        hop_sizes   = [ 8,  64, 256, 1024]
+        win_lengths = [16, 128, 512, 2048]
+        
+        #mrstftLoss = auraloss.freq.MultiResolutionSTFTLoss(fft_sizes=fft_sizes, hop_sizes=hop_sizes, win_lengths=win_lengths)
+        # Not sure yet how to balance the 2 terms
+        #loss = nn.functional.mse_loss(out["speech"], centre_crop(y, out["speech"])) + mrstftLoss(out["rir"], z)
+
         #print("Speech loss = " + str(speechLoss))
         #print("RIR loss    = " + str(rirLoss))
 
@@ -326,6 +337,9 @@ class Waveunet(pl.LightningModule):
         #loss = speechLoss + 5.0*rirLoss
         loss = speechLoss
         
+        # Try nn.functional.l1_loss() for the RIR
+        # Try a multiresolution FFT loss per Chrisitan's auraloss library
+
         self.log("loss", {'test': loss })
         self.log("test_loss", loss )
         self.log("test_speechLoss", speechLoss )
