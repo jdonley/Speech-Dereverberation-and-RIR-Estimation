@@ -2,7 +2,7 @@ from torch import optim, nn
 from torch.optim import lr_scheduler
 import pytorch_lightning as pl
 import torch as t
-from torchmetrics import ScaleInvariantSignalDistortionRatio
+from torchmetrics.audio.sdr import ScaleInvariantSignalDistortionRatio
 import matplotlib.pyplot as plt
 import numpy as np
 
