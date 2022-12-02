@@ -345,7 +345,8 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         learning_rate=1e-3,
         nfft=2**15-1,
         nhop=(2**15)/(2**6),
-        nfrms=16):
+        nfrms=16,
+        use_transformer=True):
         super().__init__()
         self.name = "SpeechDAREUnet_v2"
 
@@ -357,6 +358,7 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         self.nfft = nfft
         self.nhop = nhop
         self.nfrms = nfrms
+        self.use_transformer = use_transformer
         self.win = t.hann_window(self.nfft)
         self.eps = 1e-16
         self.init()
@@ -372,6 +374,8 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         self.conv3 = nn.Sequential(nn.Conv2d(128, 256, k, stride=s, padding=k//2), nn.BatchNorm2d(256), nn.LeakyReLU(leaky_slope))
         self.conv4 = nn.Sequential(nn.Conv2d(256, 256, k, stride=s, padding=k//2), nn.BatchNorm2d(256), nn.ReLU())
         
+        self.transformer = nn.Transformer(d_model=1024, nhead=8, num_encoder_layers=6, num_decoder_layers=6, batch_first=True)
+
         self.deconv1 = nn.Sequential(nn.ConvTranspose2d(256, 256, k, stride=s, padding=k//2, output_padding=s-1), nn.BatchNorm2d(256), nn.Dropout2d(p=p_drop), nn.ReLU())
         self.deconv2 = nn.Sequential(nn.ConvTranspose2d(512, 128, k, stride=s, padding=k//2, output_padding=s-1), nn.BatchNorm2d(128), nn.Dropout2d(p=p_drop), nn.ReLU())
         self.deconv3 = nn.Sequential(nn.ConvTranspose2d(256,  64, k, stride=s, padding=k//2, output_padding=s-1), nn.BatchNorm2d(64),  nn.ReLU())
@@ -433,6 +437,9 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         c3Out = self.conv3(c2Out) # ( 4 x  4 x 256)
         c4Out = self.conv4(c3Out) # ( 1 x  1 x 256)
 
+        if self.use_transformer:
+            c4Out = self.transformer(c4Out.squeeze(), c4Out.squeeze()).unsqueeze(-1)
+
         d1Out = self.deconv1(c4Out) # (  4 x   4 x 256)
         d2Out = self.deconv2(t.cat((d1Out, c3Out), dim=1)) # ( 16 x  16 x 128)
         d3Out = self.deconv3(t.cat((d2Out, c2Out), dim=1)) # ( 64 x  64 x 128)
@@ -476,8 +483,8 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         err_phase_un = nn.functional.l1_loss(y_a,y_hat_a)
 
         #loss = err_real + err_imag + 2*err_abs
-        loss_err = err_abs + err_phase + err_timedelay #+ err_phase_un * 1e-4
-        loss_mse = mse_abs + mse_phase + err_timedelay #+ mse_phase_un * 1e-4
+        loss_err = err_abs + err_phase #+ err_timedelay #+ err_phase_un * 1e-4
+        loss_mse = mse_abs + mse_phase #+ err_timedelay #+ mse_phase_un * 1e-4
 
         self.log(type+"_loss_err", loss_err )
         self.log(type+"_loss_mse", loss_mse )
@@ -578,4 +585,3 @@ class SpeechDAREUnet_v2(pl.LightningModule):
             if isinstance(layer, nn.Conv2d) or isinstance(layer, nn.ConvTranspose2d):
                 weights = layer.weight
                 self.weight_histograms_conv2d(writer, step, weights, layer_number)
-
