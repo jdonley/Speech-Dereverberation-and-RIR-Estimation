@@ -374,7 +374,7 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         self.conv3 = nn.Sequential(nn.Conv2d(128, 256, k, stride=s, padding=k//2), nn.BatchNorm2d(256), nn.LeakyReLU(leaky_slope))
         self.conv4 = nn.Sequential(nn.Conv2d(256, 256, k, stride=s, padding=k//2), nn.BatchNorm2d(256), nn.ReLU())
         
-        self.transformer = nn.Transformer(d_model=1024, nhead=8, num_encoder_layers=6, num_decoder_layers=6, batch_first=True)
+        self.transformer = nn.Transformer(d_model=256, nhead=4, num_encoder_layers=3, num_decoder_layers=3, batch_first=True)
 
         self.deconv1 = nn.Sequential(nn.ConvTranspose2d(256, 256, k, stride=s, padding=k//2, output_padding=s-1), nn.BatchNorm2d(256), nn.Dropout2d(p=p_drop), nn.ReLU())
         self.deconv2 = nn.Sequential(nn.ConvTranspose2d(512, 128, k, stride=s, padding=k//2, output_padding=s-1), nn.BatchNorm2d(128), nn.Dropout2d(p=p_drop), nn.ReLU())
@@ -438,7 +438,9 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         c4Out = self.conv4(c3Out) # ( 1 x  1 x 256)
 
         if self.use_transformer:
-            c4Out = self.transformer(c4Out.squeeze(), c4Out.squeeze()).unsqueeze(-1)
+            c4Out = self.transformer(\
+                c4Out.squeeze().permute((0,2,1)), \
+                c4Out.squeeze().permute((0,2,1))).permute((0,2,1)).unsqueeze(-1)
 
         d1Out = self.deconv1(c4Out) # (  4 x   4 x 256)
         d2Out = self.deconv2(t.cat((d1Out, c3Out), dim=1)) # ( 16 x  16 x 128)
