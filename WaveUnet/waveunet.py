@@ -24,8 +24,16 @@ class UpsamplingBlock(nn.Module):
                                                 [ConvLayer(n_outputs, n_outputs, kernel_size, 1, conv_type) for _ in range(depth - 1)])
 
         # CONVS to combine high- with low-level information (from shortcut)
+        
+        # original, using shortcuts
         self.post_shortcut_convs = nn.ModuleList([ConvLayer(n_outputs + n_shortcut, n_outputs, kernel_size, 1, conv_type)] +
                                                  [ConvLayer(n_outputs, n_outputs, kernel_size, 1, conv_type) for _ in range(depth - 1)])
+
+        # new, avoiding shortcuts (doesn't work)
+        #self.post_shortcut_convs = nn.ModuleList([ConvLayer(n_outputs, n_outputs, kernel_size, 1, conv_type)] +
+        #                                         [ConvLayer(n_outputs, n_outputs, kernel_size, 1, conv_type) for _ in range(depth - 1)])
+
+
 
     def forward(self, x, shortcut):
         # UPSAMPLE HIGH-LEVEL FEATURES
@@ -35,11 +43,13 @@ class UpsamplingBlock(nn.Module):
             upsampled = conv(upsampled)
 
         # Prepare shortcut connection
-        combined = centre_crop(shortcut, upsampled)
+        combined = centre_crop(shortcut, upsampled) # original, using shortcuts
+        #combined = upsampled # new, avoiding shortcuts (doesn't work)
 
         # Combine high- and low-level features
         for conv in self.post_shortcut_convs:
-            combined = conv(torch.cat([combined, centre_crop(upsampled, combined)], dim=1))
+            combined = conv(torch.cat([combined, centre_crop(upsampled, combined)], dim=1)) # original, using shortcuts
+            #combined = conv(upsampled) # new, avoiding shortcuts (doesn't work)
         return combined
 
     def get_output_size(self, input_size):
@@ -118,6 +128,12 @@ class Waveunet(pl.LightningModule):
         self.instruments = instruments
         self.separate = separate
         self.learning_rate = learning_rate
+
+        #MR-STFT loss
+        fft_sizes       = [16, 128, 512, 2048]
+        hop_sizes       = [ 8,  64, 256, 1024]
+        win_lengths     = [16, 128, 512, 2048]
+        self.mrstftLoss = auraloss.freq.MultiResolutionSTFTLoss(fft_sizes=fft_sizes, hop_sizes=hop_sizes, win_lengths=win_lengths)
 
         # Only odd filter kernels allowed
         assert(kernel_size_down % 2 == 1)
@@ -272,12 +288,17 @@ class Waveunet(pl.LightningModule):
         #print("out[rir].shape = " + str(out["rir"].shape))
         #loss = nn.functional.mse_loss(out["speech"], y) + nn.functional.mse_loss(out["rir"], z)
         
-        speechLoss = nn.functional.mse_loss(out["speech"], centre_crop(y, out["speech"]))
-        rirLoss    = nn.functional.mse_loss(out["rir"], z)
-        
+        speechMSEloss = nn.functional.mse_loss(out["speech"], centre_crop(y, out["speech"]))
+        rirMSEloss    = nn.functional.mse_loss(out["rir"], z)
+        rirMRSTFTloss = self.mrstftLoss(out["rir"], z)/400 # NOTE THE SCALE FACTOR!!
+
         #loss = nn.functional.mse_loss(out["speech"], centre_crop(y, out["speech"])) + nn.functional.mse_loss(out["rir"], z)
-        #loss = speechLoss + 5.0*rirLoss # 5x RIR seems to put them in better balance but worked poorly
-        loss = speechLoss # Can I get better clean speech by ignoring the RIR?
+        #loss = speechMSEloss + rirMSEloss 
+        #loss = speechMSEloss + 5.0*rirMSEloss # 5x RIR seems to put them in better balance but worked poorly
+        #loss = speechMSEloss                  # Can I get better clean speech by ignoring the RIR?
+        
+        # Not sure how to balance the 2 terms for this
+        loss = speechMSEloss + rirMRSTFTloss
         
         #MR-STFT loss
         fft_sizes   = [16, 128, 512, 2048]
@@ -293,8 +314,9 @@ class Waveunet(pl.LightningModule):
 
         self.log("loss", {'train': loss })
         self.log("train_loss", loss )
-        self.log("train_speechLoss", speechLoss )
-        self.log("train_rirLoss", rirLoss )
+        self.log("train_speechMSEloss", speechMSEloss)
+        self.log("train_rirMSEloss", rirMSEloss)
+        self.log("train_rirMRSTFTloss", rirMRSTFTloss)
 
         return loss
 
@@ -309,15 +331,44 @@ class Waveunet(pl.LightningModule):
         z = z[:, None, :].float()
 
         out  = self.forward(x)
-        speechLoss = nn.functional.mse_loss(out["speech"], centre_crop(y, out["speech"]))
-        rirLoss    = nn.functional.mse_loss(out["rir"], z)
-        #loss = speechLoss + 5.0*rirLoss
-        loss = speechLoss
+        speechMSEloss = nn.functional.mse_loss(out["speech"], centre_crop(y, out["speech"]))
+        rirMSEloss    = nn.functional.mse_loss(out["rir"], z)
+        rirMRSTFTloss = self.mrstftLoss(out["rir"], z)/400 # NOTE THE SCALE FACTOR!!
+
+        #loss = speechMSEloss + rirMSEloss
+        #loss = speechMSEloss + 5.0*rirMSEloss
+        #loss = speechMSEloss
+        # Not sure how to balance the 2 terms for this
+        loss = speechMSEloss + rirMRSTFTloss
         
         self.log("loss", {'val': loss })
         self.log("val_loss", loss )
-        self.log("val_speechLoss", speechLoss )
-        self.log("val_rirLoss", rirLoss )
+        self.log("val_speechMSEloss", speechMSEloss )
+        self.log("val_rirMSEloss", rirMSEloss )
+        self.log("val_rirMRSTFTloss", rirMRSTFTloss)
+
+        # I don't think this will work because I am not stripping a single
+        # example out of the validation batch
+        #if (self.current_epoch % 1 == 0) and (batch_idx==0):
+        #    import matplotlib.pyplot as plt
+        #    import numpy as np
+        #    fh = plt.figure()
+        #    a = centre_crop(x, prediction["speech"])
+        #    b = centre_crop(y, prediction["speech"])
+        #    fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(1, 5)
+        #    fig.set_size_inches(24, 4.8)
+        #    ax1.plot(a.squeeze().detach().numpy())
+        #    ax2.plot(b.squeeze().detach().numpy())
+        #    ax3.plot(z)
+        #    ax4.plot(prediction["speech"].squeeze().detach().numpy())
+        #    ax5.plot(prediction["rir"].squeeze().detach().numpy())
+        #    ax1.title.set_text("Cropped Reverb Speech")
+        #    ax2.title.set_text("Cropped Clean Speech")
+        #    ax3.title.set_text("GT RIR")
+        #    ax4.title.set_text("Predicted Clean Speech")
+        #    ax5.title.set_text("Predicted RIR")
+        #    plt.savefig("./images/waveunet_"+str(self.current_epoch)+".png",dpi=600)
+        #    plt.close()
 
         return loss
 
@@ -332,18 +383,22 @@ class Waveunet(pl.LightningModule):
         z = z[:, None, :].float()
 
         out  = self.forward(x)
-        speechLoss = nn.functional.mse_loss(out["speech"], centre_crop(y, out["speech"]))
-        rirLoss    = nn.functional.mse_loss(out["rir"], z)
-        #loss = speechLoss + 5.0*rirLoss
-        loss = speechLoss
+        speechMSEloss = nn.functional.mse_loss(out["speech"], centre_crop(y, out["speech"]))
+        rirMSEloss    = nn.functional.mse_loss(out["rir"], z)
+        rirMRSTFTloss = self.mrstftLoss(out["rir"], z)/400 # NOTE THE SCALE FACTOR!!  
+        #loss = speechMSEloss + rirMSEloss
+        #loss = speechMESloss + 5.0*rirMSEloss
+        #loss = speechMSEloss
+        loss = speechMSEloss + rirMRSTFTloss
         
         # Try nn.functional.l1_loss() for the RIR
         # Try a multiresolution FFT loss per Chrisitan's auraloss library
 
         self.log("loss", {'test': loss })
         self.log("test_loss", loss )
-        self.log("test_speechLoss", speechLoss )
-        self.log("test_rirLoss", rirLoss )
+        self.log("test_speechMSEloss", speechMSEloss )
+        self.log("test_rirMSEloss", rirMSEloss )
+        self.log("test_rirMRSTFTloss", rirMRSTFTloss )
 
         return loss
 

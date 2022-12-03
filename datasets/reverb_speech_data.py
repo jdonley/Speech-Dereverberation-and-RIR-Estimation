@@ -5,6 +5,7 @@ from datasets.rir_data import MitIrSurveyDataset
 import librosa
 from scipy import signal
 import numpy as np
+import matplotlib.pyplot as plt
 
 class DareDataset(Dataset):
     def __init__(self, config, type="train", split_train_val_test_p=[80,10,10], device='cuda'):
@@ -19,6 +20,8 @@ class DareDataset(Dataset):
         self.rir_dataset = MitIrSurveyDataset(config, type=self.type, device=device)
         self.speech_dataset = LibriSpeechDataset(config, type=self.type)
 
+        #print("speech: " + str(len(self.speech_dataset)))
+        #print("rirs:   " + str(len(self.rir_dataset)))
         self.stft_format = config['stft_format']
         self.eps = 10**-32
 
@@ -38,9 +41,8 @@ class DareDataset(Dataset):
     def __getitem__(self, idx):
         idx_speech = idx % len(self.speech_dataset)
         idx_rir    = idx // len(self.speech_dataset)
-
         speech = self.speech_dataset[idx_speech][0].flatten()
-
+        #print('idx_rir = ' + str(idx_rir) +", idx = " + str(idx) + ", dataset len = " + str(len(self.speech_dataset)))
         rir = self.rir_dataset[idx_rir].flatten()
         rir = rir[~np.isnan(rir)]
 
@@ -65,6 +67,24 @@ class DareDataset(Dataset):
         rir = np.concatenate((np.zeros(3200-maxI),rir[:-3200+maxI]))
 
         reverb_speech = signal.convolve(speech, rir, method='fft')
+
+        # Fix the misaligment
+        reverb_speech = reverb_speech[3200:] # was 3201, reverb speech seemed to be one sample early.
+
+        # Diagnostics
+        #fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
+        #fig.set_size_inches(24, 4.8)
+        #fig.tight_layout()
+        #ax1.plot(speech.squeeze())
+        #ax2.plot(reverb_speech.squeeze())
+        #ax3.plot(rir.squeeze())
+        #ax1.set_xlim(0, 20000)
+        #ax2.set_xlim(0, 20000)
+        #ax1.set_ylim(-.01, 0.01)
+        #ax2.set_ylim(-.01, 0.01)
+        #ax1.title.set_text("Speech")
+        #ax2.title.set_text("reverb Speech")
+        #plt.show()
 
         # This is sloppy but effective. I need to process the data differently to use it with the wave-u-net,
         # so I do that then return.

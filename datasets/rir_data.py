@@ -8,6 +8,7 @@ import requests
 import zipfile
 from tqdm import tqdm
 import shutil
+#import pdb
 
 class MitIrSurveyDataset(Dataset):
     def __init__(self, config, type="train", split_train_val_test_p=[80,10,10], device='cuda', download=True):
@@ -22,16 +23,21 @@ class MitIrSurveyDataset(Dataset):
 
         self.split_train_val_test_p = np.array(np.int16(split_train_val_test_p))
         self.split_train_val_test = np.int16(np.round( np.array(self.split_train_val_test_p)/100 * self.max_data_len ))
-        self.split_edge = np.cumsum(np.concatenate(([0],self.split_train_val_test_p)), axis=0)
+        #self.split_edge = np.cumsum(np.concatenate(([0],self.split_train_val_test_p)), axis=0)
+        self.split_edge = np.cumsum(np.concatenate(([0],self.split_train_val_test)), axis=0)
         self.idx_rand = np.random.RandomState(seed=config['random_seed']).permutation(self.max_data_len)
+        print("self.split_train_val_test = " + str(self.split_train_val_test))
 
         split = []
+        #pdb.set_trace()
         if self.type == "train":
             split = self.idx_rand[self.split_edge[0]:self.split_edge[1]]
         elif self.type == "val":
             split = self.idx_rand[self.split_edge[1]:self.split_edge[2]]
         elif self.type == "test":
             split = self.idx_rand[self.split_edge[2]:self.split_edge[3]]
+            print("edges: " + str(self.split_edge[2]) + ":" + str(self.split_edge[3]))
+            print("split = " + str(split))
 
         files = glob.glob(str(Path(self.root_dir,"*")))
         self.split_filenames = [files[i] for i in split]

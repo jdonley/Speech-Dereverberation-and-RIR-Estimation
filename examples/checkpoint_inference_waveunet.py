@@ -12,6 +12,8 @@ import matplotlib.pyplot as plt
 import argparse
 import torch as t
 import torchaudio as ta
+import platform
+
 p = argparse.ArgumentParser()
 p.add_argument('ckpt_path')
 p.add_argument('config_path')
@@ -36,8 +38,8 @@ def run_checkpoint(config_path,ckpt_path):
     model = Waveunet.load_from_checkpoint(ckpt_path, None, None, True, num_inputs=channels, num_channels=num_features, num_outputs=channels, instruments=instruments, kernel_size_down=kernel_size_down, kernel_size_up=kernel_size_up, target_output_size=target_outputs, conv_type=conv_type, res=res)
     model.eval()
 
-    test_loader  = DareDataset(cfg,"test")
-    example = test_loader[11] # was 0
+    test_loader  = DareDataset(cfg,"test") # was test (as it should be)
+    example = test_loader[0] # was 0
     x = example[0]
     y = example[1]
     z = example[2]
@@ -74,12 +76,21 @@ def run_checkpoint(config_path,ckpt_path):
     ax3.title.set_text("GT RIR")
     ax4.title.set_text("Predicted Clean Speech")
     ax5.title.set_text("Predicted RIR")
+    ax3.set_xlim(2000, 6000)
 
     plt.show()
 
-    revSpeech   = 'C:\\Users\\PCALAMIA\\Dropbox (Meta)\\StanfordAI\\NN\\Project\\revSpeech_11_lr1e-4.wav'
-    cleanSpeech = 'C:\\Users\\PCALAMIA\\Dropbox (Meta)\\StanfordAI\\NN\\Project\\cleanSpeech_11_lr1e-4.wav'
-    predSpeech  = 'C:\\Users\\PCALAMIA\\Dropbox (Meta)\\StanfordAI\\NN\\Project\\predictedSpeech_11_lr1e-4.wav'
+    if platform.system() == 'Windows':
+        revSpeech   = 'C:\\Users\\PCALAMIA\\Dropbox (Meta)\\StanfordAI\\NN\\Project\\revSpeech_11_lr1e-4.wav'
+        cleanSpeech = 'C:\\Users\\PCALAMIA\\Dropbox (Meta)\\StanfordAI\\NN\\Project\\cleanSpeech_11_lr1e-4.wav'
+        predSpeech  = 'C:\\Users\\PCALAMIA\\Dropbox (Meta)\\StanfordAI\\NN\\Project\\predictedSpeech_11_lr1e-4.wav'
+    else:
+        #revSpeech   = '/home/pcalamia/Dropbox (Meta)/StanfordAI/NN/Project/revSpeech_0_lr1e-4.wav'
+        #cleanSpeech = '/home/pcalamia/Dropbox (Meta)/StanfordAI/NN/Project/cleanSpeech_0_lr1e-4.wav'
+        #predSpeech  = '/home/pcalamia/Dropbox (Meta)/StanfordAI/NN/Project/predictedSpeech_0_lr1e-4.wav'
+        revSpeech   = '/home/pcalamia/temp/revSpeech.wav'
+        cleanSpeech = '/home/pcalamia/temp/cleanSpeech.wav'
+        predSpeech  = '/home/pcalamia/temp/predictedSpeech.wav'
 
     outWav      = prediction["speech"].squeeze().detach().numpy()[None, :]
     
