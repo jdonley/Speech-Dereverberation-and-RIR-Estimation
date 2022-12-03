@@ -488,8 +488,8 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         err_phase_un = nn.functional.l1_loss(y_a,y_hat_a)
 
         #loss = err_real + err_imag + 2*err_abs
-        loss_err = err_abs + err_phase + err_peakval # + err_timedelay #+ err_phase_un * 1e-4
-        loss_mse = mse_abs + mse_phase + err_peakval # + err_timedelay #+ mse_phase_un * 1e-4
+        loss_err = err_abs + err_phase # + err_peakval # + err_timedelay #+ err_phase_un * 1e-4
+        loss_mse = mse_abs + mse_phase # + err_peakval # + err_timedelay #+ mse_phase_un * 1e-4
 
         self.log(type+"_loss_err", loss_err )
         self.log(type+"_loss_mse", loss_mse )
