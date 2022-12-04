@@ -67,7 +67,7 @@ class DareDataset(Dataset):
                 rir,
                 pad_width=(0, np.max((0,self.rir_duration - len(rir)))),
                 )
-            rir = np.concatenate((np.zeros(3200-maxI),rir[:-3200+maxI]))
+            rir = np.concatenate((np.zeros(4096-maxI),rir[:-4096+maxI]))
 
             reverb_speech = signal.convolve(speech, rir, method='fft')
 

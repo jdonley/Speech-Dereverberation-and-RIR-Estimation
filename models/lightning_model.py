@@ -561,15 +561,15 @@ class SpeechDAREUnet_v2(pl.LightningModule):
             ax9.plot(np.log(np.abs(c[0,0,:,0] + 1j*c[0,1,:,0])), linewidth=0.1)
             rir_est = np.fft.irfft(y_hat_c[0,:,:].cpu().squeeze().detach().numpy())
             rir = np.fft.irfft(y_c.cpu().squeeze().detach().numpy())
-            ax10.plot(rir_est[:rir_est.shape[0]//4], linewidth=0.1)
-            ax10.plot(rir[:rir_est.shape[0]//4], linewidth=0.1, alpha=0.50)
+            ax10.plot(rir_est[rir_est.shape[0]//8:(rir_est.shape[0]//8)*3], linewidth=0.1)
+            ax10.plot(rir[rir_est.shape[0]//8:(rir_est.shape[0]//8)*3], linewidth=0.1, alpha=0.50)
             ax11.plot(rir_est, linewidth=0.1)
             ax11.plot(rir, linewidth=0.1, alpha=0.50)
             ax12.plot(np.log(np.abs(rir_est)), linewidth=0.1)
             ax12.plot(np.log(np.abs(rir)), linewidth=0.1, alpha=0.50)
             plt.savefig("./images/2_"+str(self.current_epoch)+".png",dpi=1200)
             tb = self.logger.experiment
-            tb.add_figure('Fig1', plt.gcf(), global_step=self.global_step)
+            tb.add_figure('Fig1', fig, global_step=self.global_step)
             plt.close()
         return 0
     

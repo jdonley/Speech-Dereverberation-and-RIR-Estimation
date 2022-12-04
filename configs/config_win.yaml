@@ -5,17 +5,19 @@ data_in_ram: False
 
 stft_format: realimag # realimag or magphase
 rir_duration: 32767
-nfft: 32767
-nhop: 4096
+nfft: 16383
+nhop: 2048
 nfrms: 16
 
 Model:
   model_name: SpeechDAREUnet_v2
   learning_rate: 0.001
+  nfft: 8192
+  nfrms: 16
 
 DataLoader:
-  batch_size: 96
-  num_workers: 2
+  batch_size: 72
+  num_workers: 16
   persistent_workers: True
   shuffle: True
   drop_last: True
@@ -39,16 +41,16 @@ AdvancedProfiler:
   line_count_restriction: 1.0
 
 Trainer:
-  limit_train_batches: 5715
-  limit_val_batches: 28
-  limit_test_batches: 286
+  limit_train_batches: 2220
+  limit_val_batches: 11
+  limit_test_batches: 111
   max_epochs: 100
   # reload_dataloaders_every_n_epochs: 1
-  num_sanity_val_steps: 0
+  num_sanity_val_steps: 1
   accumulate_grad_batches: 1
   log_every_n_steps: 100
   # accelerator: gpu
-  devices: 4
+  devices: 3
 
 RichProgressBarTheme:
   description: green_yellow
