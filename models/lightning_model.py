@@ -2,6 +2,7 @@ from torch import optim, nn
 from torch.optim import lr_scheduler
 import pytorch_lightning as pl
 import torch as t
+import torchaudio as ta
 from torchmetrics.audio.sdr import ScaleInvariantSignalDistortionRatio
 import matplotlib.pyplot as plt
 import numpy as np
@@ -360,6 +361,7 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         self.nfrms = nfrms
         self.use_transformer = use_transformer
         self.win = t.hann_window(self.nfft)
+        self.mel_transform = ta.transforms.MelScale(n_mels=128,n_stft=self.nfft)
         self.eps = 1e-16
         self.init()
 
@@ -474,6 +476,11 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         err_real = nn.functional.l1_loss(t.real(y_hat_c),t.real(y_c))
         err_imag = nn.functional.l1_loss(t.imag(y_hat_c),t.imag(y_c))
         err_abs = nn.functional.l1_loss(t.log(t.abs(y_hat_c)),t.log(t.abs(y_c)))
+
+        y_hat_c_mel = self.mel_transform(y_hat_c)
+        y_c_mel = self.mel_transform(y_c)
+        err_abs_mel = nn.functional.l1_loss(t.log(t.abs(y_hat_c_mel)),t.log(t.abs(y_c_mel)))
+        mse_abs_mel = nn.functional.mse_loss(t.log(t.abs(y_hat_c_mel)),t.log(t.abs(y_c_mel)))
         
         y1 = t.sin(t.angle(y_c))
         y2 = t.cos(t.angle(y_c))
@@ -488,14 +495,15 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         err_phase_un = nn.functional.l1_loss(y_a,y_hat_a)
 
         #loss = err_real + err_imag + 2*err_abs
-        loss_err = err_abs + err_phase # + err_peakval # + err_timedelay #+ err_phase_un * 1e-4
-        loss_mse = mse_abs + mse_phase # + err_peakval # + err_timedelay #+ mse_phase_un * 1e-4
+        loss_err = err_abs_mel + err_phase # + err_peakval # + err_timedelay #+ err_phase_un * 1e-4
+        loss_mse = mse_abs_mel + mse_phase # + err_peakval # + err_timedelay #+ mse_phase_un * 1e-4
 
         self.log(type+"_loss_err", loss_err )
         self.log(type+"_loss_mse", loss_mse )
         self.log(type+"_err_phase",err_phase)
         self.log(type+"_err_phase_un",err_phase_un)
         self.log(type+"_err_abs",  err_abs  )
+        self.log(type+"_err_abs_mel",  err_abs_mel  )
         self.log(type+"_err_real", err_real )
         self.log(type+"_err_imag", err_imag )
         self.log(type+"_err_time", err_time )
@@ -503,6 +511,7 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         self.log(type+"_mse_phase",mse_phase)
         self.log(type+"_mse_phase_un",mse_phase_un)
         self.log(type+"_mse_abs",  mse_abs  )
+        self.log(type+"_mse_abs_mel",  mse_abs_mel  )
         self.log(type+"_mse_real", mse_real )
         self.log(type+"_mse_imag", mse_imag )
         self.log(type+"_mse_time", mse_time )
@@ -514,8 +523,8 @@ class SpeechDAREUnet_v2(pl.LightningModule):
 
         return \
             loss_err, loss_mse, \
-            err_real, err_imag, err_abs, err_phase, err_phase_un, err_time, err_time_abs_log, \
-            mse_real, mse_imag, mse_abs, mse_phase, mse_phase_un, mse_time, mse_time_abs_log, \
+            err_real, err_imag, err_abs, err_abs_mel, err_phase, err_phase_un, err_time, err_time_abs_log, \
+            mse_real, mse_imag, mse_abs, mse_abs_mel, mse_phase, mse_phase_un, mse_time, mse_time_abs_log, \
             kld_time_abs_log, err_timedelay, err_peak, err_peakval, \
             y_hat_c
 
