@@ -1,27 +1,29 @@
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
 from pytorch_lightning import LightningDataModule
 from datasets.speech_data import LibriSpeechDataset
 from datasets.rir_data import MitIrSurveyDataset
 import librosa
 from scipy import signal
 import numpy as np
-import matplotlib.pyplot as plt
+import torch as t
 
 class DareDataset(Dataset):
     def __init__(self, config, type="train", split_train_val_test_p=[80,10,10], device='cuda'):
 
+        self.type = type
+        self.split_train_val_test_p = split_train_val_test_p
+        self.device = device
+
+        # PTC added 
         self.model  = config['Model']['model_name']
         self.waveunet_input_samples  = 73721
         self.waveunet_output_samples = 32777
-        self.type   = type
-        self.split_train_val_test_p = split_train_val_test_p
-        self.device = device
         
         self.rir_dataset = MitIrSurveyDataset(config, type=self.type, device=device)
         self.speech_dataset = LibriSpeechDataset(config, type=self.type)
+        
+        self.dataset_len = config['DataLoader']['batch_size'] * config['Trainer']['limit_train_batches']
 
-        #print("speech: " + str(len(self.speech_dataset)))
-        #print("rirs:   " + str(len(self.rir_dataset)))
         self.stft_format = config['stft_format']
         self.eps = 10**-32
 
@@ -35,158 +37,161 @@ class DareDataset(Dataset):
         self.nhop = config['nhop']
         self.reverb_speech_duration = self.nfrms * self.nhop
 
+        self.data_in_ram = config['data_in_ram']
+        if self.data_in_ram:
+            self.data = []
+            self.idx_to_data = -np.ones((len(self.speech_dataset) * len(self.rir_dataset),),dtype=np.int32) 
+
     def __len__(self):
-        return len(self.speech_dataset) * len(self.rir_dataset)
+        return self.dataset_len # len(self.speech_dataset) * len(self.rir_dataset)
 
     def __getitem__(self, idx):
-        idx_speech = idx % len(self.speech_dataset)
-        idx_rir    = idx // len(self.speech_dataset)
-        speech = self.speech_dataset[idx_speech][0].flatten()
-        #print('idx_rir = ' + str(idx_rir) +", idx = " + str(idx) + ", dataset len = " + str(len(self.speech_dataset)))
-        rir = self.rir_dataset[idx_rir].flatten()
-        rir = rir[~np.isnan(rir)]
+        if not self.data_in_ram or (self.data_in_ram and self.idx_to_data[idx] == -1):
+            idx_speech = idx % len(self.speech_dataset)
+            idx_rir    = idx % len(self.rir_dataset)
 
-        # Resample the rirs from 32 kHz to 16 kHz
-        rir = librosa.resample(rir,
-            orig_sr=self.rir_dataset.samplerate,
-            target_sr=self.samplerate,
-            res_type='soxr_hq')
-        rir = rir - np.mean(rir)
-        rir = rir / np.max(np.abs(rir))
-        maxI = np.argmax(np.abs(rir))
+            speech = self.speech_dataset[idx_speech][0].flatten()
 
-        rir = rir[25:]
-        rir = rir * signal.windows.tukey(rir.shape[0], alpha=2*25/rir.shape[0], sym=True) # Taper 50 samples at the beginning and end of the RIR
-        rir = signal.sosfilt(self.rir_sos, rir)
-        maxI = np.argmax(np.abs(rir))
-        rir = rir / rir[maxI]
-        rir = np.pad(
-            rir,
-            pad_width=(0, np.max((0,self.rir_duration - len(rir)))),
-            )
-        rir = np.concatenate((np.zeros(3200-maxI),rir[:-3200+maxI]))
+            rir = self.rir_dataset[idx_rir].flatten()
+            rir = rir[~np.isnan(rir)]
 
-        reverb_speech = signal.convolve(speech, rir, method='fft')
+            rir = librosa.resample(rir,
+                orig_sr=self.rir_dataset.samplerate,
+                target_sr=self.samplerate,
+                res_type='soxr_hq')
+            rir = rir - np.mean(rir)
+            rir = rir / np.max(np.abs(rir))
+            maxI = np.argmax(np.abs(rir))
 
-        # Fix the misaligment
-        reverb_speech = reverb_speech[3200:] # was 3201, reverb speech seemed to be one sample early.
-
-        # Diagnostics
-        #fig, (ax1, ax2, ax3) = plt.subplots(1, 3)
-        #fig.set_size_inches(24, 4.8)
-        #fig.tight_layout()
-        #ax1.plot(speech.squeeze())
-        #ax2.plot(reverb_speech.squeeze())
-        #ax3.plot(rir.squeeze())
-        #ax1.set_xlim(0, 20000)
-        #ax2.set_xlim(0, 20000)
-        #ax1.set_ylim(-.01, 0.01)
-        #ax2.set_ylim(-.01, 0.01)
-        #ax1.title.set_text("Speech")
-        #ax2.title.set_text("reverb Speech")
-        #plt.show()
-
-        # This is sloppy but effective. I need to process the data differently to use it with the wave-u-net,
-        # so I do that then return.
-        if self.model == 'Waveunet': 
-            reverb_speech = np.pad(
-                reverb_speech,
-                pad_width=(0, np.max((0,135141 - len(reverb_speech)))),
-                )
-            reverb_speech = reverb_speech[:135141] # expected input size given 15 up, 5 down filters and 2sec output
-
-            speech = np.pad(
-                speech,
-                pad_width=(0, np.max((0,135141 - len(speech)))),
-                )
-            speech = speech[:135141]               # expected input size given 15 up, 5 down filters and 2sec output
-
+            rir = rir[25:]
+            rir = rir * signal.windows.tukey(rir.shape[0], alpha=2*25/rir.shape[0], sym=True) # Taper 50 samples at the beginning and end of the RIR
+            rir = signal.sosfilt(self.rir_sos, rir)
+            maxI = np.argmax(np.abs(rir))
+            rir = rir / rir[maxI]
             rir = np.pad(
                 rir,
-                pad_width=(0, np.max((0,32777 - len(rir)))),
-                )            
-            return reverb_speech, speech, rir 
+                pad_width=(0, np.max((0,self.rir_duration - len(rir)))),
+                )
+            rir = np.concatenate((np.zeros(3200-maxI),rir[:-3200+maxI]))
 
-        reverb_speech = np.pad(
-            reverb_speech,
-            pad_width=(0, np.max((0,self.reverb_speech_duration - len(reverb_speech)))),
-            )
-        reverb_speech = reverb_speech[:self.reverb_speech_duration]
-        
-        speech = np.pad(
-            speech,
-            pad_width=(0, np.max((0,self.reverb_speech_duration - len(speech)))),
-            )
-        speech = speech[:self.reverb_speech_duration]
+            reverb_speech = signal.convolve(speech, rir, method='fft')
 
-        reverb_speech_stft = librosa.stft(
-            reverb_speech,
-            n_fft=self.nfft,
-            hop_length=self.nhop,
-            win_length=self.nfft,
-            window='hann'
-            )
+            # Fix the misaligment between the clean speech and the reverberant speech (possibly matters for wave-u-net)
+            reverb_speech = reverb_speech[3200:] # was 3201, reverb speech seemed to be one sample early.
+            
+            # This is sloppy but effective. I need to process the data differently to use it with the wave-u-net,
+            # so I do that here then return.
+            if self.model == 'Waveunet': 
+                reverb_speech = np.pad(
+                    reverb_speech,
+                    pad_width=(0, np.max((0,135141 - len(reverb_speech)))),
+                    )
+                reverb_speech = reverb_speech[:135141] # expected input size given 15 up, 5 down filters and 2sec output
 
-        if self.stft_format == 'magphase':
-            np.seterr(divide = 'ignore')
-            rs_mag = np.log(np.abs(reverb_speech_stft)) # Magnitude
-            np.seterr(divide = 'warn')
-            rs_mag[np.isinf(rs_mag)] = self.eps
-            # Normalize to [-1,1]
-            rs_mag = rs_mag - rs_mag.min()
-            rs_mag = rs_mag / rs_mag.max() / 2 - 1
+                speech = np.pad(
+                    speech,
+                    pad_width=(0, np.max((0,135141 - len(speech)))),
+                    )
+                speech = speech[:135141]               # expected input size given 15 up, 5 down filters and 2sec output
 
-            reverb_speech = np.stack((rs_mag, np.angle(reverb_speech_stft)))
-    
-        elif self.stft_format == 'realimag':
-            reverb_speech = np.stack((np.real(reverb_speech_stft), np.imag(reverb_speech_stft)))
-            reverb_speech = reverb_speech - np.mean(reverb_speech)
-            reverb_speech = reverb_speech / np.max(np.abs(reverb_speech))
+                rir = np.pad(
+                    rir,
+                    pad_width=(0, np.max((0,32777 - len(rir)))),
+                    )            
+                return reverb_speech, speech, rir
 
+            reverb_speech = np.pad(
+                reverb_speech,
+                pad_width=(0, np.max((0,self.reverb_speech_duration - len(reverb_speech)))),
+                )
+            reverb_speech = reverb_speech[:self.reverb_speech_duration]
+            
+            speech = np.pad(
+                speech,
+                pad_width=(0, np.max((0,self.reverb_speech_duration - len(speech)))),
+                )
+            speech = speech[:self.reverb_speech_duration]
+
+            reverb_speech_stft = librosa.stft(
+                reverb_speech,
+                n_fft=self.nfft,
+                hop_length=self.nhop,
+                win_length=self.nfft,
+                window='hann'
+                )
+            
+            # import matplotlib.pyplot as plt
+            # plt.imshow(np.log(np.abs(reverb_speech_stft)), aspect='auto')
+            # plt.show()
+            # plt.close()
+
+
+            if self.stft_format == 'magphase':
+                np.seterr(divide = 'ignore')
+                rs_mag = np.log(np.abs(reverb_speech_stft)) # Magnitude
+                np.seterr(divide = 'warn')
+                rs_mag[np.isinf(rs_mag)] = self.eps
+                # Normalize to [-1,1]
+                rs_mag = rs_mag - rs_mag.min()
+                rs_mag = rs_mag / rs_mag.max() / 2 - 1
+
+                reverb_speech = np.stack((rs_mag, np.angle(reverb_speech_stft)))
+            
+            elif self.stft_format == 'realimag':
+                reverb_speech = np.stack((np.real(reverb_speech_stft), np.imag(reverb_speech_stft)))
+                reverb_speech = reverb_speech - np.mean(reverb_speech)
+                reverb_speech = reverb_speech / np.max(np.abs(reverb_speech))
+
+            else:
+                raise Exception("Unknown STFT format. Specify 'realimag' or 'magphase'.")
+
+            speech_wav = speech / np.max(np.abs(speech)) - np.mean(speech)
+            speech_stft = librosa.stft(
+                speech,
+                n_fft=self.nfft,
+                hop_length=self.nhop,
+                win_length=self.nfft,
+                window='hann'
+                )
+            # import torch as t
+            # s = t.tensor(np.real(speech_stft[None,:,:])).float() + 1j*t.tensor(np.imag(speech_stft[None,:,:])).float()
+            # speech2 = np.squeeze(t.istft(s,self.nfft,hop_length=self.nhop,win_length=self.nfft,window=t.hann_window(self.nfft),length=speech_wav.shape[0]).numpy())
+            # # print(speech-speech2)
+            # import matplotlib.pyplot as plt
+            # plt.plot(speech, label = "speech")
+            # plt.plot(speech2, label = "speech2")
+            # plt.plot(speech-speech2, label = "speech-speech2")
+            # plt.show()
+            # plt.close()
+
+            if self.stft_format == 'magphase':
+                np.seterr(divide = 'ignore')
+                s_mag = np.log(np.abs(speech_stft)) # Magnitude
+                np.seterr(divide = 'warn')
+                s_mag[np.isinf(s_mag)] = self.eps
+                # Normalize to [-1,1]
+                s_mag = s_mag - s_mag.min()
+                s_mag = s_mag / s_mag.max() / 2 - 1
+                speech = np.stack((s_mag, np.angle(speech_stft)))
+
+            elif self.stft_format == 'realimag':
+                speech = np.stack((np.real(speech_stft), np.imag(speech_stft)))
+                speech = speech - np.mean(speech)
+                speech = speech / np.max(np.abs(speech))
+
+            else:
+                raise Exception("Unknown STFT format. Specify 'realimag' or 'magphase'.")
+            
+            rir_fft = np.fft.rfft(rir)
+            rir_fft = np.stack((np.real(rir_fft), np.imag(rir_fft)))
+            rir_fft = rir_fft - np.mean(rir_fft)
+            rir_fft = rir_fft / np.max(np.abs(rir_fft))
+
+            if self.data_in_ram:
+                self.data.append((reverb_speech, speech, speech_wav, rir_fft, rir))
+                self.idx_to_data[idx] = len(self.data) - 1
         else:
-            raise Exception("Unknown STFT format. Specify 'realimag' or 'magphase'.")
-
-        speech_wav = speech / np.max(np.abs(speech)) - np.mean(speech)
-        speech_stft = librosa.stft(
-            speech,
-            n_fft=self.nfft,
-            hop_length=self.nhop,
-            win_length=self.nfft,
-            window='hann'
-            )
-        # import torch as t
-        # s = t.tensor(np.real(speech_stft[None,:,:])).float() + 1j*t.tensor(np.imag(speech_stft[None,:,:])).float()
-        # speech2 = np.squeeze(t.istft(s,self.nfft,hop_length=self.nhop,win_length=self.nfft,window=t.hann_window(self.nfft),length=speech_wav.shape[0]).numpy())
-        # # print(speech-speech2)
-        # import matplotlib.pyplot as plt
-        # plt.plot(speech, label = "speech")
-        # plt.plot(speech2, label = "speech2")
-        # plt.plot(speech-speech2, label = "speech-speech2")
-        # plt.show()
-        # plt.close()
-
-        if self.stft_format == 'magphase':
-            np.seterr(divide = 'ignore')
-            s_mag = np.log(np.abs(speech_stft)) # Magnitude
-            np.seterr(divide = 'warn')
-            s_mag[np.isinf(s_mag)] = self.eps
-            # Normalize to [-1,1]
-            s_mag = s_mag - s_mag.min()
-            s_mag = s_mag / s_mag.max() / 2 - 1
-            speech = np.stack((s_mag, np.angle(speech_stft)))
-
-        elif self.stft_format == 'realimag':
-            speech = np.stack((np.real(speech_stft), np.imag(speech_stft)))
-            speech = speech - np.mean(speech)
-            speech = speech / np.max(np.abs(speech))
-
-        else:
-            raise Exception("Unknown STFT format. Specify 'realimag' or 'magphase'.")
-        
-        rir_fft = np.fft.rfft(rir)
-        rir_fft = np.stack((np.real(rir_fft), np.imag(rir_fft)))
-        rir_fft = rir_fft - np.mean(rir_fft)
-        rir_fft = rir_fft / np.max(np.abs(rir_fft))
+            reverb_speech, speech, speech_wav, rir_fft, rir = self.data[self.idx_to_data[idx]]
         
         return reverb_speech, speech, speech_wav, rir_fft[:,:,None], rir
 

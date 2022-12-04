@@ -7,6 +7,8 @@ nfft: 32767
 nhop: 4096
 nfrms: 16
 
+data_in_ram: True
+
 Model:
   model_name: Waveunet
   learning_rate: 0.000001
@@ -40,7 +42,7 @@ Trainer:
   limit_val_batches: 100
   limit_test_batches: 100
   max_epochs: 100
-  log_every_n_steps: 10
+  log_every_n_steps: 100
   accelerator: gpu
   devices: 1
   profiler: null

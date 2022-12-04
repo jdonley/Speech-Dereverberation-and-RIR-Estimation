@@ -39,7 +39,7 @@ def run_checkpoint(config_path,ckpt_path):
     model.eval()
 
     test_loader  = DareDataset(cfg,"test") # was test (as it should be)
-    example = test_loader[0] # was 0
+    example = test_loader[11] # was 0
     x = example[0]
     y = example[1]
     z = example[2]

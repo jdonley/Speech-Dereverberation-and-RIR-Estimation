@@ -8,6 +8,7 @@ from WaveUnet.resample import Resample1d
 from WaveUnet.conv import ConvLayer
 
 import auraloss # for MR-STFT loss 
+import matplotlib.pyplot as plt # for diagnostics only
 
 class UpsamplingBlock(nn.Module):
     def __init__(self, n_inputs, n_shortcut, n_outputs, kernel_size, stride, depth, conv_type, res):
@@ -128,6 +129,7 @@ class Waveunet(pl.LightningModule):
         self.instruments = instruments
         self.separate = separate
         self.learning_rate = learning_rate
+        print('learning_rate = ' + str(learning_rate))
 
         #MR-STFT loss
         fft_sizes       = [16, 128, 512, 2048]
@@ -289,16 +291,16 @@ class Waveunet(pl.LightningModule):
         #loss = nn.functional.mse_loss(out["speech"], y) + nn.functional.mse_loss(out["rir"], z)
         
         speechMSEloss = nn.functional.mse_loss(out["speech"], centre_crop(y, out["speech"]))
-        rirMSEloss    = nn.functional.mse_loss(out["rir"], z)
-        rirMRSTFTloss = self.mrstftLoss(out["rir"], z)/400 # NOTE THE SCALE FACTOR!!
+        #rirMSEloss    = nn.functional.mse_loss(out["rir"], z)
+        #rirMRSTFTloss = self.mrstftLoss(out["rir"], z)/400 # NOTE THE SCALE FACTOR!!
 
         #loss = nn.functional.mse_loss(out["speech"], centre_crop(y, out["speech"])) + nn.functional.mse_loss(out["rir"], z)
         #loss = speechMSEloss + rirMSEloss 
         #loss = speechMSEloss + 5.0*rirMSEloss # 5x RIR seems to put them in better balance but worked poorly
-        #loss = speechMSEloss                  # Can I get better clean speech by ignoring the RIR?
+        loss = speechMSEloss                  # Can I get better clean speech by ignoring the RIR?
         
         # Not sure how to balance the 2 terms for this
-        loss = speechMSEloss + rirMRSTFTloss
+        #loss = speechMSEloss + rirMRSTFTloss
         
         #MR-STFT loss
         fft_sizes   = [16, 128, 512, 2048]
@@ -312,11 +314,31 @@ class Waveunet(pl.LightningModule):
         #print("Speech loss = " + str(speechLoss))
         #print("RIR loss    = " + str(rirLoss))
 
+        # Diagnostic figures
+        #print("out[speech].shape = " + str(out["speech"].shape))
+        #x = centre_crop(x, out["speech"])
+        #y = centre_crop(y, out["speech"])
+        #fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(1, 5)
+        #fig.set_size_inches(24, 4.8)
+        #ax1.plot(x[0,0,:].cpu().squeeze().detach().numpy())
+        #ax2.plot(y[0,0,:].cpu().squeeze().detach().numpy())
+        #ax3.plot(z[0,0,:].cpu().squeeze().detach().numpy())
+        #ax4.plot(out["speech"][0,0,:].cpu().squeeze().detach().numpy())
+        #ax5.plot(out["rir"][0,0,:].cpu().squeeze().detach().numpy())
+        #ax1.title.set_text("Cropped Reverb Speech")
+        #ax2.title.set_text("Cropped Clean Speech")
+        #ax3.title.set_text("GT RIR")
+        #ax4.title.set_text("Predicted Clean Speech")
+        #ax5.title.set_text("Predicted RIR")
+        ##ax3.set_xlim(2000, 6000)
+        #ax3.set_xlim(3100, 3300)
+        #plt.show()
+
         self.log("loss", {'train': loss })
         self.log("train_loss", loss )
         self.log("train_speechMSEloss", speechMSEloss)
-        self.log("train_rirMSEloss", rirMSEloss)
-        self.log("train_rirMRSTFTloss", rirMRSTFTloss)
+        #self.log("train_rirMSEloss", rirMSEloss)
+        #self.log("train_rirMRSTFTloss", rirMRSTFTloss)
 
         return loss
 
@@ -332,43 +354,20 @@ class Waveunet(pl.LightningModule):
 
         out  = self.forward(x)
         speechMSEloss = nn.functional.mse_loss(out["speech"], centre_crop(y, out["speech"]))
-        rirMSEloss    = nn.functional.mse_loss(out["rir"], z)
-        rirMRSTFTloss = self.mrstftLoss(out["rir"], z)/400 # NOTE THE SCALE FACTOR!!
+        #rirMSEloss    = nn.functional.mse_loss(out["rir"], z)
+        #rirMRSTFTloss = self.mrstftLoss(out["rir"], z)/400 # NOTE THE SCALE FACTOR!!
 
         #loss = speechMSEloss + rirMSEloss
         #loss = speechMSEloss + 5.0*rirMSEloss
-        #loss = speechMSEloss
+        loss = speechMSEloss
         # Not sure how to balance the 2 terms for this
-        loss = speechMSEloss + rirMRSTFTloss
+        #loss = speechMSEloss + rirMRSTFTloss
         
         self.log("loss", {'val': loss })
         self.log("val_loss", loss )
         self.log("val_speechMSEloss", speechMSEloss )
-        self.log("val_rirMSEloss", rirMSEloss )
-        self.log("val_rirMRSTFTloss", rirMRSTFTloss)
-
-        # I don't think this will work because I am not stripping a single
-        # example out of the validation batch
-        #if (self.current_epoch % 1 == 0) and (batch_idx==0):
-        #    import matplotlib.pyplot as plt
-        #    import numpy as np
-        #    fh = plt.figure()
-        #    a = centre_crop(x, prediction["speech"])
-        #    b = centre_crop(y, prediction["speech"])
-        #    fig, (ax1, ax2, ax3, ax4, ax5) = plt.subplots(1, 5)
-        #    fig.set_size_inches(24, 4.8)
-        #    ax1.plot(a.squeeze().detach().numpy())
-        #    ax2.plot(b.squeeze().detach().numpy())
-        #    ax3.plot(z)
-        #    ax4.plot(prediction["speech"].squeeze().detach().numpy())
-        #    ax5.plot(prediction["rir"].squeeze().detach().numpy())
-        #    ax1.title.set_text("Cropped Reverb Speech")
-        #    ax2.title.set_text("Cropped Clean Speech")
-        #    ax3.title.set_text("GT RIR")
-        #    ax4.title.set_text("Predicted Clean Speech")
-        #    ax5.title.set_text("Predicted RIR")
-        #    plt.savefig("./images/waveunet_"+str(self.current_epoch)+".png",dpi=600)
-        #    plt.close()
+        #self.log("val_rirMSEloss", rirMSEloss )
+        #self.log("val_rirMRSTFTloss", rirMRSTFTloss)
 
         return loss
 
@@ -384,12 +383,12 @@ class Waveunet(pl.LightningModule):
 
         out  = self.forward(x)
         speechMSEloss = nn.functional.mse_loss(out["speech"], centre_crop(y, out["speech"]))
-        rirMSEloss    = nn.functional.mse_loss(out["rir"], z)
-        rirMRSTFTloss = self.mrstftLoss(out["rir"], z)/400 # NOTE THE SCALE FACTOR!!  
+        #rirMSEloss    = nn.functional.mse_loss(out["rir"], z)
+        #rirMRSTFTloss = self.mrstftLoss(out["rir"], z)/400 # NOTE THE SCALE FACTOR!!  
         #loss = speechMSEloss + rirMSEloss
         #loss = speechMESloss + 5.0*rirMSEloss
-        #loss = speechMSEloss
-        loss = speechMSEloss + rirMRSTFTloss
+        loss = speechMSEloss
+        #loss = speechMSEloss + rirMRSTFTloss
         
         # Try nn.functional.l1_loss() for the RIR
         # Try a multiresolution FFT loss per Chrisitan's auraloss library
@@ -397,8 +396,8 @@ class Waveunet(pl.LightningModule):
         self.log("loss", {'test': loss })
         self.log("test_loss", loss )
         self.log("test_speechMSEloss", speechMSEloss )
-        self.log("test_rirMSEloss", rirMSEloss )
-        self.log("test_rirMRSTFTloss", rirMRSTFTloss )
+        #self.log("test_rirMSEloss", rirMSEloss )
+        #self.log("test_rirMRSTFTloss", rirMRSTFTloss )
 
         return loss
 

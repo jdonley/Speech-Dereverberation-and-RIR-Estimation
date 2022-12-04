@@ -36,8 +36,8 @@ class MitIrSurveyDataset(Dataset):
             split = self.idx_rand[self.split_edge[1]:self.split_edge[2]]
         elif self.type == "test":
             split = self.idx_rand[self.split_edge[2]:self.split_edge[3]]
-            print("edges: " + str(self.split_edge[2]) + ":" + str(self.split_edge[3]))
-            print("split = " + str(split))
+            #print("edges: " + str(self.split_edge[2]) + ":" + str(self.split_edge[3]))
+            #print("split = " + str(split))
 
         files = glob.glob(str(Path(self.root_dir,"*")))
         self.split_filenames = [files[i] for i in split]
