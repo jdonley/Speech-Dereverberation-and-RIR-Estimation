@@ -7,9 +7,9 @@ from torchmetrics.audio.sdr import ScaleInvariantSignalDistortionRatio
 import matplotlib.pyplot as plt
 import numpy as np
 
-def getModel(model_name=None,learning_rate=1e-3,nfft=511,nhop=256):
+def getModel(model_name=None,learning_rate=1e-3,nfft=511,nfrms=16):
     if   model_name == "SpeechDAREUnet_v1": model = SpeechDAREUnet_v1(learning_rate=learning_rate)
-    elif model_name == "SpeechDAREUnet_v2": model = SpeechDAREUnet_v2(learning_rate=learning_rate,nfft=nfft,nhop=nhop)
+    elif model_name == "SpeechDAREUnet_v2": model = SpeechDAREUnet_v2(learning_rate=learning_rate,nfft=nfft,nfrms=nfrms)
     elif model_name == "ErnstUnet":         model = ErnstUnet        (learning_rate=learning_rate)
     else: raise Exception("Unknown model name.")
     
@@ -357,10 +357,10 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         self.loss_ind = 0
         self.si_sdr = ScaleInvariantSignalDistortionRatio()
         self.nfft = nfft
-        self.nhop = nhop
+        # self.nhop = nhop
         self.nfrms = nfrms
         self.use_transformer = use_transformer
-        self.win = t.hann_window(self.nfft)
+        # self.win = t.hann_window(self.nfft)
         self.mel_transform = ta.transforms.MelScale(n_mels=128,n_stft=self.nfft)
         self.eps = 1e-16
         self.init()
@@ -452,7 +452,9 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         return out1Out
     
     def compute_losses(self, y, yt, y_predict, type):
-        y_c = y[:,0,:,:].float() + 1j*y[:,1,:,:].float()
+        n_rir_gt = y.shape[2]
+        n_rir_pred = y_predict.shape[2]
+        y_c = y[:,0,::n_rir_gt//n_rir_pred,:].float() + 1j*y[:,1,::n_rir_gt//n_rir_pred,:].float()
         y_hat_c = y_predict[:,0,:,:] + 1j*y_predict[:,1,:,:]
         
         y_hat_c_t = t.fft.irfft(y_hat_c,n=yt.shape[1],dim=1).squeeze()
@@ -477,10 +479,10 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         err_imag = nn.functional.l1_loss(t.imag(y_hat_c),t.imag(y_c))
         err_abs = nn.functional.l1_loss(t.log(t.abs(y_hat_c)),t.log(t.abs(y_c)))
 
-        y_hat_c_mel = self.mel_transform(y_hat_c)
-        y_c_mel = self.mel_transform(y_c)
-        err_abs_mel = nn.functional.l1_loss(t.log(t.abs(y_hat_c_mel)),t.log(t.abs(y_c_mel)))
-        mse_abs_mel = nn.functional.mse_loss(t.log(t.abs(y_hat_c_mel)),t.log(t.abs(y_c_mel)))
+        y_hat_c_mel = self.mel_transform(t.abs(y_hat_c))
+        y_c_mel = self.mel_transform(t.abs(y_c))
+        err_abs_mel = nn.functional.l1_loss(t.log(y_hat_c_mel),t.log(y_c_mel))
+        mse_abs_mel = nn.functional.mse_loss(t.log(y_hat_c_mel),t.log(y_c_mel))
         
         y1 = t.sin(t.angle(y_c))
         y2 = t.cos(t.angle(y_c))
@@ -495,8 +497,8 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         err_phase_un = nn.functional.l1_loss(y_a,y_hat_a)
 
         #loss = err_real + err_imag + 2*err_abs
-        loss_err = err_abs_mel + err_phase # + err_peakval # + err_timedelay #+ err_phase_un * 1e-4
-        loss_mse = mse_abs_mel + mse_phase # + err_peakval # + err_timedelay #+ mse_phase_un * 1e-4
+        loss_err = err_abs + err_phase # + err_peakval # + err_timedelay #+ err_phase_un * 1e-4
+        loss_mse = mse_abs + mse_phase # + err_peakval # + err_timedelay #+ mse_phase_un * 1e-4
 
         self.log(type+"_loss_err", loss_err )
         self.log(type+"_loss_mse", loss_mse )
