@@ -1,6 +1,8 @@
 datasets_path: 'C:\Datasets'
 random_seed: 230
 
+data_in_ram: False
+
 stft_format: realimag # realimag or magphase
 rir_duration: 32767
 nfft: 32767
@@ -9,11 +11,11 @@ nfrms: 16
 
 Model:
   model_name: SpeechDAREUnet_v2
-  learning_rate: 0.01
+  learning_rate: 0.001
 
 DataLoader:
-  batch_size: 16
-  num_workers: 16
+  batch_size: 96
+  num_workers: 2
   persistent_workers: True
   shuffle: True
   drop_last: True
@@ -26,9 +28,10 @@ ModelCheckpoint:
 LearningRateMonitor:
   logging_interval: epoch
 
-DDPStrategy:
-  process_group_backend: gloo
-  find_unused_parameters: False
+DataParallelStrategy:
+  # process_group_backend: gloo
+  # find_unused_parameters: False
+  accelerator: gpu
 
 AdvancedProfiler:
   dirpath: null
@@ -36,14 +39,16 @@ AdvancedProfiler:
   line_count_restriction: 1.0
 
 Trainer:
-  limit_train_batches: 10000
-  limit_val_batches: 50
-  limit_test_batches: 500
+  limit_train_batches: 5715
+  limit_val_batches: 28
+  limit_test_batches: 286
   max_epochs: 100
+  # reload_dataloaders_every_n_epochs: 1
+  num_sanity_val_steps: 0
   accumulate_grad_batches: 1
-  log_every_n_steps: 10
-  accelerator: gpu
-  devices: 1
+  log_every_n_steps: 100
+  # accelerator: gpu
+  devices: 4
 
 RichProgressBarTheme:
   description: green_yellow
