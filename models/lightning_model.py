@@ -539,36 +539,53 @@ class SpeechDAREUnet_v2(pl.LightningModule):
 
     def make_plot(self,batch_idx,x,y,y_hat,y_hat_c):
         if (batch_idx==0) and (torch.utils.data.get_worker_info() is None):
+            plt.rcParams.update({'font.size': 4})
+            plt.rcParams['axes.linewidth'] = 0.2
+            plt.rcParams["figure.dpi"] = 1200
+
             fh = plt.figure()
-            fig, ((ax1, ax2, ax3),(ax4, ax5, ax6),(ax7, ax8, ax9),(ax10,ax11,ax12)) = plt.subplots(4, 3)
+            fig, ((ax1, ax2, ax3),(ax4, ax5, ax6),(ax7,ax8,ax9)) = plt.subplots(3, 3)
             a = x.cpu().detach().numpy()
             b = y.cpu().detach().numpy()
             c = y_hat.cpu().detach().numpy()
             
-            y_c = y[0,0,:,:].float() + 1j*y[0,1,:,:].float()
+            n_rir_gt = y.shape[2]
+            n_rir_pred = y_hat.shape[2]
+
+            y_c = y[0,0,::n_rir_gt//n_rir_pred,:].float() + 1j*y[0,1,::n_rir_gt//n_rir_pred,:].float()
             x_a = np.unwrap(np.angle((a[0,0,:,:] + 1j*a[0,1,:,:])),axis=0)
-            y_a = np.unwrap(np.angle(y_c.cpu().detach().numpy()),axis=0)
-            y_hat_a = np.unwrap(np.angle(y_hat_c.cpu().detach().numpy()),axis=1)
-            ax1.imshow(a[0,0,:,:], aspect='auto')
-            ax2.imshow(b[0,0,:,:], aspect='auto')
-            ax3.imshow(c[0,0,:,:], aspect='auto')
-            ax4.plot(x_a[:,0], linewidth=0.1)
-            ax5.plot(y_a[:,0], linewidth=0.1)
-            ax6.plot(y_hat_a[0,:,0], linewidth=0.1)
-            # ax4.imshow(np.angle(a[0,0,:,:] + 1j*a[0,1,:,:]), aspect='auto')
-            # ax5.imshow(np.angle(b[0,0,:,:] + 1j*b[0,1,:,:]), aspect='auto')
-            # ax6.imshow(np.angle(c[0,0,:,:] + 1j*c[0,1,:,:]), aspect='auto')
-            ax7.plot(np.mean(np.log(np.abs(a[0,0,:,:] + 1j*a[0,1,:,:])),axis=1), linewidth=0.1)
-            ax8.plot(np.log(np.abs(b[0,0,:,0] + 1j*b[0,1,:,0])), linewidth=0.1)
-            ax9.plot(np.log(np.abs(c[0,0,:,0] + 1j*c[0,1,:,0])), linewidth=0.1)
+            y_a = np.angle(y_c.cpu().detach().numpy())
+            y_hat_a = np.angle(y_hat_c.cpu().detach().numpy())
+            
+            ax1.plot(x_a[:,0], linewidth=0.1, label="Input Unwrapped Phase")
+            ax2.plot(np.unwrap(y_hat_a[0,:,0],axis=0), linewidth=0.1, label="Predicted Unwrapped Phase")
+            ax2.plot(np.unwrap(y_a[:,0],axis=0), linewidth=0.1, label="Target Unwrapped Phase")
+            ax3.plot(y_hat_a[0,:,0], '.', markeredgecolor='none', markersize=0.5, label="Predicted Phase")
+            ax3.plot(y_a[:,0], '.', markeredgecolor='none', markersize=0.5, label="Target Phase")
+            ax1.legend(loc=2)
+            ax2.legend(loc=3)
+            ax3.legend(loc=4)
+            
+            ax4.plot(np.mean(np.log(np.abs(a[0,0,:,:] + 1j*a[0,1,:,:])),axis=1), linewidth=0.1, label="Input Magnitude")
+            ax5.plot(np.log(np.abs(b[0,0,:,0] + 1j*b[0,1,:,0])), linewidth=0.1, label="Target Magnitude")
+            ax6.plot(np.log(np.abs(c[0,0,:,0] + 1j*c[0,1,:,0])), linewidth=0.1, label="Predicted Magnitude")
+            ax6.plot(np.log(np.abs(y_c[:,0].cpu().detach().numpy())), linewidth=0.1, label="Target Magnitude")
+            ax4.legend(loc=8)
+            ax5.legend(loc=8)
+            ax6.legend(loc=8)
+
             rir_est = np.fft.irfft(y_hat_c[0,:,:].cpu().squeeze().detach().numpy())
             rir = np.fft.irfft(y_c.cpu().squeeze().detach().numpy())
-            ax10.plot(rir_est[rir_est.shape[0]//8:(rir_est.shape[0]//8)*3], linewidth=0.1)
-            ax10.plot(rir[rir_est.shape[0]//8:(rir_est.shape[0]//8)*3], linewidth=0.1, alpha=0.50)
-            ax11.plot(rir_est, linewidth=0.1)
-            ax11.plot(rir, linewidth=0.1, alpha=0.50)
-            ax12.plot(np.log(np.abs(rir_est)), linewidth=0.1)
-            ax12.plot(np.log(np.abs(rir)), linewidth=0.1, alpha=0.50)
+            ax7.plot(rir_est[rir_est.shape[0]//8:(rir_est.shape[0]//8)*3], linewidth=0.1, label="Predicted RIR 1/8 to 3/8")
+            ax7.plot(rir[rir_est.shape[0]//8:(rir_est.shape[0]//8)*3], linewidth=0.1, alpha=0.50, label="Target RIR 1/8 to 3/8")
+            ax8.plot(rir_est, linewidth=0.1, label="Predicted RIR")
+            ax8.plot(rir, linewidth=0.1, alpha=0.50, label="Target RIR")
+            ax9.plot(np.log(np.abs(rir_est)), linewidth=0.1, label="Predicted log(abs(RIR))")
+            ax9.plot(np.log(np.abs(rir)), linewidth=0.1, alpha=0.50, label="Target log(abs(RIR))")
+            ax7.legend(loc=2)
+            ax8.legend(loc=1)
+            ax9.legend(loc=3)
+
             fig.savefig("./images/2_"+str(self.current_epoch)+".png",dpi=1200)
             tb = self.logger.experiment
             tb.add_figure('Fig1', fig, global_step=self.global_step)
