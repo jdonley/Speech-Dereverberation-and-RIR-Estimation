@@ -45,6 +45,10 @@ Trainer:
   accelerator: gpu
   devices: 1
 
+RichProgressBar:
+  refresh_rate: 1
+  leave: True
+
 RichProgressBarTheme:
   description: green_yellow
   progress_bar: green1
