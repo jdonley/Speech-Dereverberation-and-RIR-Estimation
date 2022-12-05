@@ -17,7 +17,7 @@ class DareDataset(Dataset):
         self.rir_dataset = MitIrSurveyDataset(config, type=self.type, device=device)
         self.speech_dataset = LibriSpeechDataset(config, type=self.type)
         
-        self.dataset_len = config['DataLoader']['batch_size'] * config['Trainer']['limit_train_batches']
+        self.dataset_len = config['DataLoader']['batch_size'] * config['Trainer']["limit_"+type+"_batches"]
 
         self.stft_format = config['stft_format']
         self.eps = 10**-32
