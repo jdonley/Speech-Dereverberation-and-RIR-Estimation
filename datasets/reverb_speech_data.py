@@ -6,6 +6,7 @@ import librosa
 from scipy import signal
 import numpy as np
 import torch as t
+import copy
 
 class DareDataset(Dataset):
     def __init__(self, config, type="train", split_train_val_test_p=[80,10,10], device='cuda'):
@@ -167,9 +168,10 @@ class DareDataset(Dataset):
         return reverb_speech, speech, speech_wav, rir_fft[:,:,None], rir
 
 def DareDataloader(config,type="train"):
+    cfg = copy.deepcopy(config)
     if type != "train":
-        config['DataLoader']['shuffle'] = False
-    return DataLoader(DareDataset(config,type),**config['DataLoader'])
+        cfg['DataLoader']['shuffle'] = False
+    return DataLoader(DareDataset(cfg,type),**cfg['DataLoader'])
 
 class DareDataModule(LightningDataModule):
     def __init__(self,config):
