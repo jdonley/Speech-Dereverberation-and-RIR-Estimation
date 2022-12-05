@@ -2,14 +2,15 @@ from torch import optim, nn
 from torch.optim import lr_scheduler
 import pytorch_lightning as pl
 import torch as t
+import torch.utils.data
 import torchaudio as ta
 from torchmetrics.audio.sdr import ScaleInvariantSignalDistortionRatio
 import matplotlib.pyplot as plt
 import numpy as np
 
-def getModel(model_name=None,learning_rate=1e-3,nfft=511,nfrms=16):
+def getModel(model_name=None,learning_rate=1e-3,nfft=511,nfrms=16,use_transformer=False,log_val_every_n_epochs=1):
     if   model_name == "SpeechDAREUnet_v1": model = SpeechDAREUnet_v1(learning_rate=learning_rate)
-    elif model_name == "SpeechDAREUnet_v2": model = SpeechDAREUnet_v2(learning_rate=learning_rate,nfft=nfft,nfrms=nfrms)
+    elif model_name == "SpeechDAREUnet_v2": model = SpeechDAREUnet_v2(learning_rate=learning_rate,nfft=nfft,nfrms=nfrms,use_transformer=use_transformer,log_val_every_n_epochs=log_val_every_n_epochs)
     elif model_name == "ErnstUnet":         model = ErnstUnet        (learning_rate=learning_rate)
     else: raise Exception("Unknown model name.")
     
@@ -347,6 +348,7 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         nfft=2**15-1,
         nhop=(2**15)/(2**6),
         nfrms=16,
+        log_val_every_n_epochs=1,
         use_transformer=True):
         super().__init__()
         self.name = "SpeechDAREUnet_v2"
@@ -354,6 +356,7 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         self.has_init = False
         self.learning_rate = learning_rate
         self.lr_scheduler_gamma = 0.9
+        self.log_val_every_n_epochs = log_val_every_n_epochs
         self.loss_ind = 0
         self.si_sdr = ScaleInvariantSignalDistortionRatio()
         self.nfft = nfft
@@ -500,28 +503,28 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         loss_err = err_abs + err_phase # + err_peakval # + err_timedelay #+ err_phase_un * 1e-4
         loss_mse = mse_abs + mse_phase # + err_peakval # + err_timedelay #+ mse_phase_un * 1e-4
 
-        self.log(type+"_loss_err", loss_err )
-        self.log(type+"_loss_mse", loss_mse )
-        self.log(type+"_err_phase",err_phase)
-        self.log(type+"_err_phase_un",err_phase_un)
-        self.log(type+"_err_abs",  err_abs  )
-        self.log(type+"_err_abs_mel",  err_abs_mel  )
-        self.log(type+"_err_real", err_real )
-        self.log(type+"_err_imag", err_imag )
-        self.log(type+"_err_time", err_time )
-        self.log(type+"_err_time_abs_log", err_time_abs_log )
-        self.log(type+"_mse_phase",mse_phase)
-        self.log(type+"_mse_phase_un",mse_phase_un)
-        self.log(type+"_mse_abs",  mse_abs  )
-        self.log(type+"_mse_abs_mel",  mse_abs_mel  )
-        self.log(type+"_mse_real", mse_real )
-        self.log(type+"_mse_imag", mse_imag )
-        self.log(type+"_mse_time", mse_time )
-        self.log(type+"_mse_time_abs_log", mse_time_abs_log )
-        self.log(type+"_kld_time_abs_log", kld_time_abs_log )
-        self.log(type+"_err_timedelay", err_timedelay )
-        self.log(type+"_err_peak", err_peak )
-        self.log(type+"_err_peakval", err_peakval )
+        self.log(type+"_loss_err", loss_err, sync_dist=True )
+        self.log(type+"_loss_mse", loss_mse, sync_dist=True )
+        self.log(type+"_err_phase",err_phase, sync_dist=True)
+        self.log(type+"_err_phase_un",err_phase_un, sync_dist=True)
+        self.log(type+"_err_abs",  err_abs, sync_dist=True )
+        self.log(type+"_err_abs_mel",  err_abs_mel, sync_dist=True )
+        self.log(type+"_err_real", err_real, sync_dist=True )
+        self.log(type+"_err_imag", err_imag, sync_dist=True )
+        self.log(type+"_err_time", err_time, sync_dist=True )
+        self.log(type+"_err_time_abs_log", err_time_abs_log, sync_dist=True )
+        self.log(type+"_mse_phase", mse_phase, sync_dist=True )
+        self.log(type+"_mse_phase_un", mse_phase_un, sync_dist=True )
+        self.log(type+"_mse_abs", mse_abs, sync_dist=True )
+        self.log(type+"_mse_abs_mel", mse_abs_mel, sync_dist=True )
+        self.log(type+"_mse_real", mse_real, sync_dist=True )
+        self.log(type+"_mse_imag", mse_imag, sync_dist=True )
+        self.log(type+"_mse_time", mse_time, sync_dist=True )
+        self.log(type+"_mse_time_abs_log", mse_time_abs_log, sync_dist=True )
+        self.log(type+"_kld_time_abs_log", kld_time_abs_log, sync_dist=True )
+        self.log(type+"_err_timedelay", err_timedelay, sync_dist=True )
+        self.log(type+"_err_peak", err_peak, sync_dist=True )
+        self.log(type+"_err_peakval", err_peakval, sync_dist=True )
 
         return \
             loss_err, loss_mse, \
@@ -536,7 +539,7 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         return [optimizer], [scheduler]
 
     def make_plot(self,batch_idx,x,y,y_hat,y_hat_c):
-        if (self.current_epoch % 1 == 0) and (batch_idx==0):
+        if (self.current_epoch % self.log_val_every_n_epochs == 0) and (batch_idx==0) and (torch.utils.data.get_worker_info() is None):
             fh = plt.figure()
             fig, ((ax1, ax2, ax3),(ax4, ax5, ax6),(ax7, ax8, ax9),(ax10,ax11,ax12)) = plt.subplots(4, 3)
             a = x.cpu().detach().numpy()
@@ -567,7 +570,7 @@ class SpeechDAREUnet_v2(pl.LightningModule):
             ax11.plot(rir, linewidth=0.1, alpha=0.50)
             ax12.plot(np.log(np.abs(rir_est)), linewidth=0.1)
             ax12.plot(np.log(np.abs(rir)), linewidth=0.1, alpha=0.50)
-            plt.savefig("./images/2_"+str(self.current_epoch)+".png",dpi=1200)
+            fig.savefig("./images/2_"+str(self.current_epoch)+".png",dpi=1200)
             tb = self.logger.experiment
             tb.add_figure('Fig1', fig, global_step=self.global_step)
             plt.close()
@@ -582,23 +585,24 @@ class SpeechDAREUnet_v2(pl.LightningModule):
             writer.add_histogram(tag, flattened_weights, global_step=step, bins='tensorflow')
 
     def weight_histograms(self):
-        writer = self.logger.experiment
-        step = self.global_step
-        # Iterate over all model layers
-        layers = []
-        layers.append(self.conv1[0])
-        layers.append(self.conv2[0])
-        layers.append(self.conv3[0])
-        layers.append(self.conv4[0])
-        layers.append(self.deconv1[0])
-        layers.append(self.deconv2[0])
-        layers.append(self.deconv3[0])
-        layers.append(self.deconv4[0])
-        layers.append(self.out1[0])
-        
-        for layer_number in range(len(layers)):
-            layer = layers[layer_number]
-            # Compute weight histograms for appropriate layer
-            if isinstance(layer, nn.Conv2d) or isinstance(layer, nn.ConvTranspose2d):
-                weights = layer.weight
-                self.weight_histograms_conv2d(writer, step, weights, layer_number)
+        if torch.utils.data.get_worker_info() is None:
+            writer = self.logger.experiment
+            step = self.global_step
+            # Iterate over all model layers
+            layers = []
+            layers.append(self.conv1[0])
+            layers.append(self.conv2[0])
+            layers.append(self.conv3[0])
+            layers.append(self.conv4[0])
+            layers.append(self.deconv1[0])
+            layers.append(self.deconv2[0])
+            layers.append(self.deconv3[0])
+            layers.append(self.deconv4[0])
+            layers.append(self.out1[0])
+            
+            for layer_number in range(len(layers)):
+                layer = layers[layer_number]
+                # Compute weight histograms for appropriate layer
+                if isinstance(layer, nn.Conv2d) or isinstance(layer, nn.ConvTranspose2d):
+                    weights = layer.weight
+                    self.weight_histograms_conv2d(writer, step, weights, layer_number)
