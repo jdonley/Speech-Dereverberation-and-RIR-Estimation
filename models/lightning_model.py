@@ -8,9 +8,9 @@ from torchmetrics.audio.sdr import ScaleInvariantSignalDistortionRatio
 import matplotlib.pyplot as plt
 import numpy as np
 
-def getModel(model_name=None,learning_rate=1e-3,nfft=511,nfrms=16,use_transformer=False,log_val_every_n_epochs=1):
+def getModel(model_name=None,learning_rate=1e-3,nfft=511,nfrms=16,use_transformer=False):
     if   model_name == "SpeechDAREUnet_v1": model = SpeechDAREUnet_v1(learning_rate=learning_rate)
-    elif model_name == "SpeechDAREUnet_v2": model = SpeechDAREUnet_v2(learning_rate=learning_rate,nfft=nfft,nfrms=nfrms,use_transformer=use_transformer,log_val_every_n_epochs=log_val_every_n_epochs)
+    elif model_name == "SpeechDAREUnet_v2": model = SpeechDAREUnet_v2(learning_rate=learning_rate,nfft=nfft,nfrms=nfrms,use_transformer=use_transformer)
     elif model_name == "ErnstUnet":         model = ErnstUnet        (learning_rate=learning_rate)
     else: raise Exception("Unknown model name.")
     
@@ -348,7 +348,6 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         nfft=2**15-1,
         nhop=(2**15)/(2**6),
         nfrms=16,
-        log_val_every_n_epochs=1,
         use_transformer=True):
         super().__init__()
         self.name = "SpeechDAREUnet_v2"
@@ -356,7 +355,6 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         self.has_init = False
         self.learning_rate = learning_rate
         self.lr_scheduler_gamma = 0.9
-        self.log_val_every_n_epochs = log_val_every_n_epochs
         self.loss_ind = 0
         self.si_sdr = ScaleInvariantSignalDistortionRatio()
         self.nfft = nfft
@@ -379,7 +377,8 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         self.conv3 = nn.Sequential(nn.Conv2d(128, 256, k, stride=s, padding=k//2), nn.BatchNorm2d(256), nn.LeakyReLU(leaky_slope))
         self.conv4 = nn.Sequential(nn.Conv2d(256, 256, k, stride=s, padding=k//2), nn.BatchNorm2d(256), nn.ReLU())
         
-        self.transformer = nn.Transformer(d_model=256, nhead=4, num_encoder_layers=3, num_decoder_layers=3, batch_first=True)
+        if self.use_transformer:
+            self.transformer = nn.Transformer(d_model=256, nhead=4, num_encoder_layers=3, num_decoder_layers=3, batch_first=True)
 
         self.deconv1 = nn.Sequential(nn.ConvTranspose2d(256, 256, k, stride=s, padding=k//2, output_padding=s-1), nn.BatchNorm2d(256), nn.Dropout2d(p=p_drop), nn.ReLU())
         self.deconv2 = nn.Sequential(nn.ConvTranspose2d(512, 128, k, stride=s, padding=k//2, output_padding=s-1), nn.BatchNorm2d(128), nn.Dropout2d(p=p_drop), nn.ReLU())
@@ -539,7 +538,7 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         return [optimizer], [scheduler]
 
     def make_plot(self,batch_idx,x,y,y_hat,y_hat_c):
-        if (self.current_epoch % self.log_val_every_n_epochs == 0) and (batch_idx==0) and (torch.utils.data.get_worker_info() is None):
+        if (batch_idx==0) and (torch.utils.data.get_worker_info() is None):
             fh = plt.figure()
             fig, ((ax1, ax2, ax3),(ax4, ax5, ax6),(ax7, ax8, ax9),(ax10,ax11,ax12)) = plt.subplots(4, 3)
             a = x.cpu().detach().numpy()

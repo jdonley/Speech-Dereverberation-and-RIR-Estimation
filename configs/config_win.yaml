@@ -15,10 +15,9 @@ Model:
   nfft: 8192
   nfrms: 16
   use_transformer: True
-  log_val_every_n_epochs: 5
 
 DataLoader:
-  batch_size: 72
+  batch_size: 128
   num_workers: 16
   persistent_workers: True
   shuffle: True
@@ -51,6 +50,7 @@ Trainer:
   num_sanity_val_steps: 1
   accumulate_grad_batches: 1
   log_every_n_steps: 100
+  check_val_every_n_epoch: 5
   # accelerator: gpu
   devices: 3
 
