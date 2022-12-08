@@ -48,7 +48,8 @@ class DareDataset(Dataset):
 
             speech = self.speech_dataset[idx_speech][0].flatten()
 
-            rir = self.rir_dataset[idx_rir].flatten()
+            rir,rirfn = self.rir_dataset[idx_rir]
+            rir = rir.flatten()
             rir = rir[~np.isnan(rir)]
 
             rir = librosa.resample(rir,
@@ -160,12 +161,12 @@ class DareDataset(Dataset):
             rir_fft = rir_fft / np.max(np.abs(rir_fft))
 
             if self.data_in_ram:
-                self.data.append((reverb_speech, speech, speech_wav, rir_fft, rir))
+                self.data.append((reverb_speech, speech, speech_wav, rir_fft, rir, rirfn))
                 self.idx_to_data[idx] = len(self.data) - 1
         else:
-            reverb_speech, speech, speech_wav, rir_fft, rir = self.data[self.idx_to_data[idx]]
+            reverb_speech, speech, speech_wav, rir_fft, rir, rirfn = self.data[self.idx_to_data[idx]]
         
-        return reverb_speech, speech, speech_wav, rir_fft[:,:,None], rir
+        return reverb_speech, speech, speech_wav, rir_fft[:,:,None], rir, rirfn
 
 def DareDataloader(config,type="train"):
     cfg = copy.deepcopy(config)

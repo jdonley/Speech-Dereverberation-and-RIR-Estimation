@@ -391,7 +391,7 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         loss_type = "train"
         # training_step defines the train loop.
         # it is independent of forward
-        x, _, _, y, yt = batch # reverberant speech, clean speech, waveform speech, RIR fft
+        x, _, _, y, yt, _ = batch # reverberant speech, clean speech, waveform speech, RIR fft
         x = x.float()
         y = y.float()
         y_hat = self.predict(x.float())
@@ -405,7 +405,7 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         loss_type = "val"
         # validation_step defines the validation loop.
         # it is independent of forward
-        x, _, _, y, yt = batch # reverberant speech, clean speech, waveform speech, RIR fft
+        x, _, _, y, yt, ytfn = batch # reverberant speech, clean speech, waveform speech, RIR fft
         x = x.float()
         y = y.float()
         y_hat = self.predict(x.float())
@@ -415,7 +415,7 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         self.log("loss", {loss_type: loss })
         self.log(loss_type+"_loss", loss )
         
-        self.make_plot(batch_idx, x, y, y_hat, losses[-1])
+        self.make_plot(batch_idx, x, y, y_hat, losses[-1], ytfn)
 
         self.weight_histograms()
 
@@ -425,7 +425,7 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         loss_type = "test"
         # test_step defines the test loop.
         # it is independent of forward
-        x, _, _, y, yt = batch # reverberant speech, clean speech, waveform speech, RIR fft
+        x, _, _, y, yt, _ = batch # reverberant speech, clean speech, waveform speech, RIR fft
         x = x.float()
         y = y.float()
         y_hat = self.predict(x.float())
@@ -537,7 +537,7 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         scheduler = lr_scheduler.ExponentialLR(optimizer, self.lr_scheduler_gamma, self.current_epoch-1)
         return [optimizer], [scheduler]
 
-    def make_plot(self,batch_idx,x,y,y_hat,y_hat_c):
+    def make_plot(self,batch_idx,x,y,y_hat,y_hat_c,ytfn):
         if (batch_idx==0) and (self.device.index==0) and (torch.utils.data.get_worker_info() is None):
             plt.rcParams.update({'font.size': 4})
             plt.rcParams['axes.linewidth'] = 0.2
@@ -562,6 +562,7 @@ class SpeechDAREUnet_v2(pl.LightningModule):
             ax2.plot(np.unwrap(y_a[:,0],axis=0), linewidth=0.1, label="Target Unwrapped Phase")
             ax3.plot(y_hat_a[0,:,0], '.', markeredgecolor='none', markersize=0.5, label="Predicted Phase")
             ax3.plot(y_a[:,0], '.', markeredgecolor='none', markersize=0.5, label="Target Phase")
+            ax1.set_title(ytfn[0])
             ax1.legend(loc=2)
             ax2.legend(loc=3)
             ax3.legend(loc=4)

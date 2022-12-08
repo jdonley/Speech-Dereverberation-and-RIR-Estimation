@@ -46,7 +46,7 @@ class MitIrSurveyDataset(Dataset):
         if samplerate != self.samplerate:
             raise Exception("The samplerate of the audio in the dataset is not 32kHz.")
         
-        return audio_data
+        return audio_data, filename
 
     def download_mit_ir_survey(self, local_path):
         url = "https://mcdermottlab.mit.edu/Reverb/IRMAudio/Audio.zip"
