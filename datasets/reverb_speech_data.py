@@ -21,6 +21,7 @@ class DareDataset(Dataset):
         self.dataset_len = config['DataLoader']['batch_size'] * config['Trainer']["limit_"+type+"_batches"]
 
         self.stft_format = config['stft_format']
+        self.stft_format_sp = config['stft_format_sp']
         self.eps = 10**-32
 
         self.nfft = config['nfft']
@@ -137,7 +138,7 @@ class DareDataset(Dataset):
             # plt.show()
             # plt.close()
 
-            if self.stft_format == 'magphase':
+            if self.stft_format_sp == 'magphase':
                 np.seterr(divide = 'ignore')
                 s_mag = np.log(np.abs(speech_stft)) # Magnitude
                 np.seterr(divide = 'warn')
@@ -147,7 +148,7 @@ class DareDataset(Dataset):
                 s_mag = s_mag / s_mag.max() / 2 - 1
                 speech = np.stack((s_mag, np.angle(speech_stft)))
 
-            elif self.stft_format == 'realimag':
+            elif self.stft_format_sp == 'realimag':
                 speech = np.stack((np.real(speech_stft), np.imag(speech_stft)))
                 speech = speech - np.mean(speech)
                 speech = speech / np.max(np.abs(speech))

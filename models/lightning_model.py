@@ -8,9 +8,9 @@ from torchmetrics.audio.sdr import ScaleInvariantSignalDistortionRatio
 import matplotlib.pyplot as plt
 import numpy as np
 
-def getModel(model_name=None,learning_rate=1e-3,nfft=511,nfrms=16,use_transformer=False):
+def getModel(model_name=None,learning_rate=1e-3,nfft=511,nfrms=16,use_transformer=False,use_speechbranch=False,alph=0):
     if   model_name == "SpeechDAREUnet_v1": model = SpeechDAREUnet_v1(learning_rate=learning_rate)
-    elif model_name == "SpeechDAREUnet_v2": model = SpeechDAREUnet_v2(learning_rate=learning_rate,nfft=nfft,nfrms=nfrms,use_transformer=use_transformer)
+    elif model_name == "SpeechDAREUnet_v2": model = SpeechDAREUnet_v2(learning_rate=learning_rate,nfft=nfft,nfrms=nfrms,use_transformer=use_transformer,use_speechbranch=use_speechbranch,alph=alph)
     elif model_name == "ErnstUnet":         model = ErnstUnet        (learning_rate=learning_rate)
     else: raise Exception("Unknown model name.")
     
@@ -348,7 +348,9 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         nfft=2**15-1,
         nhop=(2**15)/(2**6),
         nfrms=16,
-        use_transformer=True):
+        use_transformer=True, 
+        use_speechbranch=False,
+        alph=0):
         super().__init__()
         self.name = "SpeechDAREUnet_v2"
 
@@ -361,6 +363,8 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         # self.nhop = nhop
         self.nfrms = nfrms
         self.use_transformer = use_transformer
+        self.use_speechbranch = use_speechbranch
+        self.alph = alph
         # self.win = t.hann_window(self.nfft)
         self.mel_transform = ta.transforms.MelScale(n_mels=128,n_stft=self.nfft)
         self.eps = 1e-16
@@ -385,18 +389,27 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         self.deconv3 = nn.Sequential(nn.ConvTranspose2d(256,  64, k, stride=s, padding=k//2, output_padding=s-1), nn.BatchNorm2d(64),  nn.ReLU())
         self.deconv4 = nn.Sequential(nn.ConvTranspose2d(128,   2, k, stride=s, padding=k//2, output_padding=s-1), nn.BatchNorm2d(2),  nn.ReLU())
         
+        if self.use_speechbranch:
+            self.deconv1_2 = nn.Sequential(nn.ConvTranspose2d(256, 256, k, stride=s, padding=k//2, output_padding=s-1), nn.BatchNorm2d(256), nn.Dropout2d(p=p_drop), nn.ReLU())
+            self.deconv2_2 = nn.Sequential(nn.ConvTranspose2d(512, 128, k, stride=s, padding=k//2, output_padding=s-1), nn.BatchNorm2d(128), nn.Dropout2d(p=p_drop), nn.ReLU())
+            self.deconv3_2 = nn.Sequential(nn.ConvTranspose2d(256,  64, k, stride=s, padding=k//2, output_padding=s-1), nn.BatchNorm2d(64),  nn.ReLU())
+            self.deconv4_2 = nn.Sequential(nn.ConvTranspose2d(128,   2, k, stride=s, padding=k//2, output_padding=s-1), nn.BatchNorm2d(2),  nn.ReLU())
+
         self.out1 = nn.Sequential(nn.Conv2d(2,   2, (1,self.nfrms), stride=1, padding=0), nn.Tanh())
 
     def training_step(self, batch, batch_idx):
         loss_type = "train"
         # training_step defines the train loop.
         # it is independent of forward
-        x, _, _, y, yt, _ = batch # reverberant speech, clean speech, waveform speech, RIR fft
+        x, ys, _, y, yt, _ = batch # reverberant speech, clean speech, waveform speech, RIR fft
         x = x.float()
         y = y.float()
-        y_hat = self.predict(x.float())
+        y_hat, ys_hat = self.predict(x.float())
 
         loss = self.compute_losses(y, yt, y_hat, loss_type)[self.loss_ind]
+        if self.use_speechbranch:
+            loss2 = self.compute_losses(ys, None, ys_hat, loss_type)[self.loss_ind]
+            loss = (1-self.alph) * loss + self.alph * loss2
         self.log("loss", {loss_type: loss })
         self.log(loss_type+"_loss", loss )
         return loss
@@ -405,13 +418,17 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         loss_type = "val"
         # validation_step defines the validation loop.
         # it is independent of forward
-        x, _, _, y, yt, ytfn = batch # reverberant speech, clean speech, waveform speech, RIR fft
+        x, ys, _, y, yt, ytfn = batch # reverberant speech, clean speech, waveform speech, RIR fft
         x = x.float()
         y = y.float()
-        y_hat = self.predict(x.float())
+        y_hat, ys_hat = self.predict(x.float())
         
         losses = self.compute_losses(y, yt, y_hat, loss_type)
-        loss = losses[self.loss_ind]
+        if self.use_speechbranch:
+            losses2 = self.compute_losses(ys, None, ys_hat, loss_type)
+            loss = (1-self.alph) * losses[self.loss_ind] + self.alph * losses2[self.loss_ind]
+        else:
+            loss = losses[self.loss_ind]
         self.log("loss", {loss_type: loss })
         self.log(loss_type+"_loss", loss )
         
@@ -425,12 +442,15 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         loss_type = "test"
         # test_step defines the test loop.
         # it is independent of forward
-        x, _, _, y, yt, _ = batch # reverberant speech, clean speech, waveform speech, RIR fft
+        x, ys, _, y, yt, _ = batch # reverberant speech, clean speech, waveform speech, RIR fft
         x = x.float()
         y = y.float()
-        y_hat = self.predict(x.float())
+        y_hat, ys_hat = self.predict(x.float())
 
         loss = self.compute_losses(y, yt, y_hat, loss_type)[self.loss_ind]
+        if self.use_speechbranch:
+            loss2 = self.compute_losses(ys, None, ys_hat, loss_type)[self.loss_ind]
+            loss = (1-self.alph) * loss + self.alph * loss2
         self.log("loss", {loss_type: loss })
         self.log(loss_type+"_loss", loss )
         return loss
@@ -451,35 +471,76 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         d3Out = self.deconv3(t.cat((d2Out, c2Out), dim=1)) # ( 64 x  64 x 128)
         d4Out = self.deconv4(t.cat((d3Out, c1Out), dim=1)) # (256 x 256 x 1)
         out1Out = self.out1(d4Out) # (256 x 256 x 1)
-        return out1Out
+
+        if self.use_speechbranch:
+            d1Out_2 = self.deconv1_2(c4Out) # (  4 x   4 x 256)
+            d2Out_2 = self.deconv2_2(t.cat((d1Out_2, c3Out), dim=1)) # ( 16 x  16 x 128)
+            d3Out_2 = self.deconv3_2(t.cat((d2Out_2, c2Out), dim=1)) # ( 64 x  64 x 128)
+            d4Out_2 = self.deconv4_2(t.cat((d3Out_2, c1Out), dim=1)) # (256 x 256 x 1)
+        else:
+            d4Out_2 = None
+        
+        return out1Out, d4Out_2
     
     def compute_losses(self, y, yt, y_predict, type):
         n_rir_gt = y.shape[2]
         n_rir_pred = y_predict.shape[2]
         y_c = y[:,0,::n_rir_gt//n_rir_pred,:].float() + 1j*y[:,1,::n_rir_gt//n_rir_pred,:].float()
         y_hat_c = y_predict[:,0,:,:] + 1j*y_predict[:,1,:,:]
+        if yt is None:
+            y_c = y
+            y_hat_c = y_predict
         
-        y_hat_c_t = t.fft.irfft(y_hat_c,n=yt.shape[1],dim=1).squeeze()
-        mse_time = nn.functional.mse_loss(y_hat_c_t, yt)
-        err_time = nn.functional.l1_loss(y_hat_c_t, yt)
-        y_hat_c_t_abs_log = (y_hat_c_t.abs()+self.eps).log()
-        yt_abs_log = (yt.abs()+self.eps).log()
-        mse_time_abs_log = nn.functional.mse_loss(y_hat_c_t_abs_log, yt_abs_log)
-        err_time_abs_log = nn.functional.l1_loss(y_hat_c_t_abs_log, yt_abs_log)
-        kld_time_abs_log = nn.functional.kl_div(y_hat_c_t_abs_log,yt_abs_log,log_target=True).abs()
+        if yt is None:
+            ls = "_sp" #ls -> loss_suffix
+        else:
+            ls = ""
 
-        err_timedelay = t.mean(t.log(t.abs(t.argmax(y_hat_c_t,dim=1) - t.argmax(yt))+1))
-        err_peak = 0.5*t.mean(t.abs(t.argmax(y_hat_c_t,dim=1) - t.argmax(yt))/yt.shape[1] \
-            + 0.5*t.abs(t.max(y_hat_c_t,dim=1)[0] - t.max(yt)))
-        err_peakval = t.mean(t.abs(y_hat_c_t[:,t.argmax(yt)] - t.max(yt)))
+        if yt is not None:
+            y_hat_c_t = t.fft.irfft(y_hat_c,n=yt.shape[1],dim=1).squeeze()
+            mse_time = nn.functional.mse_loss(y_hat_c_t, yt)
+            err_time = nn.functional.l1_loss(y_hat_c_t, yt)
+            y_hat_c_t_abs_log = (y_hat_c_t.abs()+self.eps).log()
+            yt_abs_log = (yt.abs()+self.eps).log()
+            mse_time_abs_log = nn.functional.mse_loss(y_hat_c_t_abs_log, yt_abs_log)
+            err_time_abs_log = nn.functional.l1_loss(y_hat_c_t_abs_log, yt_abs_log)
+            kld_time_abs_log = nn.functional.kl_div(y_hat_c_t_abs_log,yt_abs_log,log_target=True).abs()
+
+            err_timedelay = t.mean(t.log(t.abs(t.argmax(y_hat_c_t,dim=1) - t.argmax(yt))+1))
+            err_peak = 0.5*t.mean(t.abs(t.argmax(y_hat_c_t,dim=1) - t.argmax(yt))/yt.shape[1] \
+                + 0.5*t.abs(t.max(y_hat_c_t,dim=1)[0] - t.max(yt)))
+            err_peakval = t.mean(t.abs(y_hat_c_t[:,t.argmax(yt)] - t.max(yt)))
         
-        mse_real = nn.functional.mse_loss(t.real(y_hat_c),t.real(y_c))
-        mse_imag = nn.functional.mse_loss(t.imag(y_hat_c),t.imag(y_c))
-        mse_abs = nn.functional.mse_loss(t.log(t.abs(y_hat_c)),t.log(t.abs(y_c)))
         
-        err_real = nn.functional.l1_loss(t.real(y_hat_c),t.real(y_c))
-        err_imag = nn.functional.l1_loss(t.imag(y_hat_c),t.imag(y_c))
-        err_abs = nn.functional.l1_loss(t.log(t.abs(y_hat_c)),t.log(t.abs(y_c)))
+            mse_real = nn.functional.mse_loss(t.real(y_hat_c),t.real(y_c))
+            mse_imag = nn.functional.mse_loss(t.imag(y_hat_c),t.imag(y_c))
+            mse_abs = nn.functional.mse_loss(t.log(t.abs(y_hat_c)),t.log(t.abs(y_c)))
+            
+            err_real = nn.functional.l1_loss(t.real(y_hat_c),t.real(y_c))
+            err_imag = nn.functional.l1_loss(t.imag(y_hat_c),t.imag(y_c))
+            err_abs = nn.functional.l1_loss(t.log(t.abs(y_hat_c)),t.log(t.abs(y_c)))
+        
+        else:
+            err_time=None
+            err_time_abs_log=None
+            mse_time=None
+            mse_time_abs_log=None
+            kld_time_abs_log=None
+            err_timedelay=None
+            err_peak=None
+            err_peakval=None
+
+            mse_real = None
+            mse_imag = None
+            mse_abs = None
+            
+            err_real = None
+            err_imag = None
+            err_abs = None
+
+        if yt is None:
+            mse_abs = nn.functional.mse_loss(y_hat_c[:,0,:,:],y_c[:,0,:,:])
+            err_abs = nn.functional.l1_loss(y_hat_c[:,0,:,:],y_c[:,0,:,:])
 
         y_hat_c_mel = self.mel_transform(t.abs(y_hat_c))
         y_c_mel = self.mel_transform(t.abs(y_c))
@@ -490,6 +551,15 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         y2 = t.cos(t.angle(y_c))
         y_hat1 = t.sin(t.angle(y_hat_c))
         y_hat2 = t.cos(t.angle(y_hat_c))
+        
+        if yt is None:
+            mse_abs = nn.functional.mse_loss(y_hat_c[:,0,:,:],y_c[:,0,:,:])
+            err_abs = nn.functional.l1_loss(y_hat_c[:,0,:,:],y_c[:,0,:,:])
+            y1 = t.sin(y_c[:,1,:,:])
+            y2 = t.cos(y_c[:,1,:,:])
+            y_hat1 = t.sin(y_hat_c[:,1,:,:])
+            y_hat2 = t.cos(y_hat_c[:,1,:,:])
+
         # err_phase = t.sum(t.abs(y_c)/t.sum(t.abs(y_c)) * t.abs(t.angle(y_c)-t.angle(y_hat_c)))
         mse_phase = nn.functional.mse_loss(y1,y_hat1) + nn.functional.mse_loss(y2,y_hat2)
         err_phase = nn.functional.l1_loss(y1,y_hat1) + nn.functional.l1_loss(y2,y_hat2)
@@ -502,28 +572,29 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         loss_err = err_abs + err_phase # + err_peakval # + err_timedelay #+ err_phase_un * 1e-4
         loss_mse = mse_abs + mse_phase # + err_peakval # + err_timedelay #+ mse_phase_un * 1e-4
 
-        self.log(type+"_loss_err", loss_err, sync_dist=True )
-        self.log(type+"_loss_mse", loss_mse, sync_dist=True )
-        self.log(type+"_err_phase",err_phase, sync_dist=True)
-        self.log(type+"_err_phase_un",err_phase_un, sync_dist=True)
-        self.log(type+"_err_abs",  err_abs, sync_dist=True )
-        self.log(type+"_err_abs_mel",  err_abs_mel, sync_dist=True )
-        self.log(type+"_err_real", err_real, sync_dist=True )
-        self.log(type+"_err_imag", err_imag, sync_dist=True )
-        self.log(type+"_err_time", err_time, sync_dist=True )
-        self.log(type+"_err_time_abs_log", err_time_abs_log, sync_dist=True )
-        self.log(type+"_mse_phase", mse_phase, sync_dist=True )
-        self.log(type+"_mse_phase_un", mse_phase_un, sync_dist=True )
-        self.log(type+"_mse_abs", mse_abs, sync_dist=True )
-        self.log(type+"_mse_abs_mel", mse_abs_mel, sync_dist=True )
-        self.log(type+"_mse_real", mse_real, sync_dist=True )
-        self.log(type+"_mse_imag", mse_imag, sync_dist=True )
-        self.log(type+"_mse_time", mse_time, sync_dist=True )
-        self.log(type+"_mse_time_abs_log", mse_time_abs_log, sync_dist=True )
-        self.log(type+"_kld_time_abs_log", kld_time_abs_log, sync_dist=True )
-        self.log(type+"_err_timedelay", err_timedelay, sync_dist=True )
-        self.log(type+"_err_peak", err_peak, sync_dist=True )
-        self.log(type+"_err_peakval", err_peakval, sync_dist=True )
+        self.log(type+"_loss_err"+ls, loss_err, sync_dist=True )
+        self.log(type+"_loss_mse"+ls, loss_mse, sync_dist=True )
+        self.log(type+"_err_phase"+ls,err_phase, sync_dist=True)
+        self.log(type+"_err_phase_un"+ls,err_phase_un, sync_dist=True)
+        self.log(type+"_err_abs"+ls,  err_abs, sync_dist=True )
+        self.log(type+"_err_abs_mel"+ls,  err_abs_mel, sync_dist=True )
+        self.log(type+"_mse_phase"+ls, mse_phase, sync_dist=True )
+        self.log(type+"_mse_phase_un"+ls, mse_phase_un, sync_dist=True )
+        self.log(type+"_mse_abs"+ls, mse_abs, sync_dist=True )
+        self.log(type+"_mse_abs_mel"+ls, mse_abs_mel, sync_dist=True )
+        if yt is not None:
+            self.log(type+"_err_real"+ls, err_real, sync_dist=True )
+            self.log(type+"_err_imag"+ls, err_imag, sync_dist=True )
+            self.log(type+"_mse_real"+ls, mse_real, sync_dist=True )
+            self.log(type+"_mse_imag"+ls, mse_imag, sync_dist=True )
+            self.log(type+"_err_time", err_time, sync_dist=True )
+            self.log(type+"_err_time_abs_log", err_time_abs_log, sync_dist=True )
+            self.log(type+"_mse_time", mse_time, sync_dist=True )
+            self.log(type+"_mse_time_abs_log", mse_time_abs_log, sync_dist=True )
+            self.log(type+"_kld_time_abs_log", kld_time_abs_log, sync_dist=True )
+            self.log(type+"_err_timedelay", err_timedelay, sync_dist=True )
+            self.log(type+"_err_peak", err_peak, sync_dist=True )
+            self.log(type+"_err_peakval", err_peakval, sync_dist=True )
 
         return \
             loss_err, loss_mse, \

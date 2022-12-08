@@ -4,6 +4,7 @@ random_seed: 230
 data_in_ram: False
 
 stft_format: realimag # realimag or magphase
+stft_format_sp: magphase
 rir_duration: 32767
 nfft: 16383
 nhop: 2048
@@ -15,6 +16,8 @@ Model:
   nfft: 8192
   nfrms: 16
   use_transformer: True
+  use_speechbranch: True
+  alph: 0.5
 
 DataLoader:
   batch_size: 128
