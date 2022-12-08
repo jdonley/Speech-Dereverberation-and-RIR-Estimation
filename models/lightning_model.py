@@ -538,7 +538,7 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         return [optimizer], [scheduler]
 
     def make_plot(self,batch_idx,x,y,y_hat,y_hat_c):
-        if (batch_idx==0) and (torch.utils.data.get_worker_info() is None):
+        if (batch_idx==0) and (self.device.index==0) and (torch.utils.data.get_worker_info() is None):
             plt.rcParams.update({'font.size': 4})
             plt.rcParams['axes.linewidth'] = 0.2
             plt.rcParams["figure.dpi"] = 1200
