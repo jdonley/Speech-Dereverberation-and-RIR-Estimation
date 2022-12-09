@@ -11,6 +11,7 @@ from utils.utils import getConfig
 from utils.progress_bar import getProgressBar
 import random
 import numpy as np
+from WaveUnet.waveunet import Waveunet
 
 random.seed(   getConfig()['random_seed'])
 np.random.seed(getConfig()['random_seed'])
@@ -20,17 +21,37 @@ def main(args):
     # ===========================================================
     # Configuration
     cfg = getConfig(config_path=args.config_path)
-
+    
     # PyTorch Lightning Models
     model = getModel(**cfg['Model'])
+    if model == None: # this happens when waveunet is chosen
+        channels         = cfg['WaveUnet']['channels']
+        kernel_size_down = cfg['WaveUnet']['kernel_size_down']
+        kernel_size_up   = cfg['WaveUnet']['kernel_size_up']
+        levels           = cfg['WaveUnet']['levels']
+        feature_growth   = cfg['WaveUnet']['feature_growth']
+        output_size      = cfg['WaveUnet']['output_size']
+        sr               = cfg['WaveUnet']['sr']
+        conv_type        = cfg['WaveUnet']['conv_type']
+        res              = cfg['WaveUnet']['res']
+        features         = cfg['WaveUnet']['features']
+        instruments      = ["speech", "rir"]
+        num_features     = [features*i for i in range(1, levels+1)] if feature_growth == "add" else \
+                           [features*2**i for i in range(0, levels)]
+        target_outputs   = int(output_size * sr)
+        learning_rate    = cfg['Model']['learning_rate']
+        model            = Waveunet(channels, num_features, channels, instruments, kernel_size_down=kernel_size_down, kernel_size_up=kernel_size_up, target_output_size=target_outputs, conv_type=conv_type, res=res, separate=False, learning_rate=learning_rate)
 
+    print("Using model " + model.name)
     # Data Module
     datamodule = DareDataModule(config=cfg)
 
     # Checkpoints
     ckpt_callback = ModelCheckpoint(
         **cfg['ModelCheckpoint'],
-        filename = model.name + "-{epoch:02d}-{val_loss:.2f}",
+        filename = model.name + "-{epoch:02d}-{val_loss:.4f}",
+        save_top_k=-1,
+        every_n_epochs=1
     )
     
     # Learning Rate Monitor
@@ -41,12 +62,12 @@ def main(args):
 
     # Profiler
     profiler = AdvancedProfiler(**cfg['AdvancedProfiler'])
-
+    
     # PyTorch Lightning Train
     trainer = pl.Trainer(
         **cfg['Trainer'],
         strategy=strategy,
-        profiler=profiler,
+        #profiler=profiler,
         callbacks=[ckpt_callback,lr_monitor,getProgressBar(cfg)]
         )
 

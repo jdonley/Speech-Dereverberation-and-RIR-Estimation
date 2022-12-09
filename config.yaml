@@ -1,0 +1,25 @@
+datasets_path: C:\Datasets
+random_seed: 230
+
+learning_rate: 0.001
+
+batch_size: 32
+train_batches: 10
+val_batches: 2
+test_batches: 2
+max_epochs: 50
+
+log_every_n_steps: 10
+
+accelerator: gpu
+devices: 1
+strategy: dp
+
+num_workers: 0
+persistent_workers: False
+
+Model: SpeechDAREUnet_v1
+ModelCheckpoint: 
+  dirpath: None
+  filename: '{epoch}-{val_loss:.2f}'
+  Trainer:

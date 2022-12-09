@@ -10,6 +10,7 @@ def getModel(model_name=None,learning_rate=1e-3,nfft=511,nhop=256):
     if   model_name == "SpeechDAREUnet_v1": model = SpeechDAREUnet_v1(learning_rate=learning_rate)
     elif model_name == "SpeechDAREUnet_v2": model = SpeechDAREUnet_v2(learning_rate=learning_rate,nfft=nfft,nhop=nhop)
     elif model_name == "ErnstUnet":         model = ErnstUnet        (learning_rate=learning_rate)
+    elif model_name == "Waveunet":          model = None # hack because I don't have the input params for the waveunet here
     else: raise Exception("Unknown model name.")
     
     return model
@@ -67,6 +68,7 @@ class LitAutoEncoder(pl.LightningModule):
         x_hat = self.decoder(latent)
         return x_hat
 
+############################################################
 class ErnstUnet(pl.LightningModule):
     def __init__(self,learning_rate=1e-3):
         super().__init__()

@@ -1,0 +1,70 @@
+datasets_path: ~/Datasets
+random_seed: 230
+
+stft_format: realimag # realimag or magphase
+rir_duration: 32767
+nfft: 32767
+nhop: 4096
+nfrms: 16
+
+data_in_ram: True
+
+Model:
+  model_name: Waveunet
+  learning_rate: 0.000001
+
+DataLoader:
+  batch_size: 8
+  shuffle: True
+  drop_last: True
+  num_workers: 12
+  pin_memory: True
+  persistent_workers: True
+
+ModelCheckpoint:
+  monitor: val_loss
+  dirpath: checkpoints
+
+LearningRateMonitor:
+  logging_interval: epoch
+
+DDPStrategy:
+  process_group_backend: gloo
+  find_unused_parameters: False
+
+AdvancedProfiler:
+  dirpath: null
+  filename: advanced_profiler.txt
+  line_count_restriction: 1.0
+
+Trainer:
+  limit_train_batches: 20000
+  limit_val_batches: 100
+  limit_test_batches: 100
+  max_epochs: 100
+  log_every_n_steps: 100
+  accelerator: gpu
+  devices: 1
+  profiler: null
+
+RichProgressBarTheme:
+  description: green_yellow
+  progress_bar: green1
+  progress_bar_finished: green1
+  progress_bar_pulse: '#6206E0'
+  batch_progress: green_yellow
+  time: grey82
+  processing_speed: grey82
+  metrics: grey82
+
+WaveUnet:
+  channels: 1
+  kernel_size_down: 15
+  kernel_size_up: 5
+  levels: 12
+  features: 24
+  feature_growth: add
+  output_size: 2.0
+  sr: 16000
+  conv_type: bn
+  res: fixed
