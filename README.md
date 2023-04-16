@@ -1,7 +1,7 @@
 # Speech-Dereverberation-and-RIR-Estimation
 ![CI Tests](https://github.com/jdonley/Speech-Dereverberation-and-RIR-Estimation/actions/workflows/python-package-conda.yml/badge.svg)
 
-This repository contains code for the methods, models and results described in "DARE-Net: Speech Dereverberation and Room Impulse Response Estimation".
+This repository contains code for the methods, models and results described in "[DARE-Net: Speech Dereverberation and Room Impulse Response Estimation](http://cs230.stanford.edu/projects_fall_2022/reports/59.pdf)".
 If you use this in your work, please use the following citation:
 ```
 @article{darenet2022,
