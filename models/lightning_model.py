@@ -16,59 +16,6 @@ def getModel(model_name=None,learning_rate=1e-3,nfft=511,nfrms=16,use_transforme
     
     return model
 
-# define the LightningModule
-class LitAutoEncoder(pl.LightningModule):
-    def __init__(self,learning_rate=1e-3):
-        super().__init__()
-        self.name = "LitAutoEncoder"
-
-        self.learning_rate = learning_rate
-
-        self.encoder = nn.Sequential(nn.Linear(256*256*2, 64), nn.ReLU(), nn.Linear(64, 8))
-        self.decoder = nn.Sequential(nn.Linear(8, 64), nn.ReLU(), nn.Linear(64, 256*256*2))
-
-    def training_step(self, batch, batch_idx):
-        # training_step defines the train loop.
-        # it is independent of forward
-        x, y, z = batch # reverberant speech, clean speech, RIR
-        x = x.view(x.size(0), -1)
-        y = y.view(y.size(0), -1)
-        z = z.view(z.size(0), -1)
-        latent = self.encoder(x)
-        y_hat = self.decoder(latent)
-        loss = nn.functional.mse_loss(y_hat, y)
-        # Logging to TensorBoard by default
-        self.log("train_loss", loss)
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-        # validation_step defines the validation loop.
-        # it is independent of forward
-        x, y, z = batch # reverberant speech, clean speech, RIR
-        x = x.view(x.size(0), -1)
-        y = y.view(y.size(0), -1)
-        z = z.view(z.size(0), -1)
-        latent = self.encoder(x)
-        y_hat = self.decoder(latent)
-        loss = nn.functional.mse_loss(y_hat, y)
-        # Logging to TensorBoard by default
-        self.log("val_loss", loss)
-        return loss
-
-    #def test_step(self, batch, batch_idx):
-        # test_step defines the test loop.
-        #     
-           
-    def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters(), lr=self.learning_rate)
-        return optimizer
-
-    def predict(self, x):
-        x = x.view(x.size(0), -1)
-        latent = self.encoder(x)
-        x_hat = self.decoder(latent)
-        return x_hat
-
 class ErnstUnet(pl.LightningModule):
     def __init__(self,learning_rate=1e-3):
         super().__init__()
@@ -202,22 +149,9 @@ class SpeechDAREUnet_v1(pl.LightningModule):
             t.log(t.abs(y_c))
             )
         phasedist = t.sum(t.abs(y_c)/t.sum(t.abs(y_c)) * t.abs(t.angle(y_c)-t.angle(y_hat_c)))
-        # loss = mse_abs + phasedist
 
         y_hat_wav = t.istft(y_hat_c,self.nfft,hop_length=self.nhop,win_length=self.nfft,window=self.win.to(self.device),length=z.shape[1])
         loss = - self.si_sdr(y_hat_wav, z) + mse_abs*10
-
-        # Try real then imag and loss=real+imag+abs 
-        # xr = x[:,[0],:,:].float()
-        # xi = x[:,[1],:,:].float()
-        # yr = y[:,[0],:,:].float()
-        # yi = y[:,[1],:,:].float()
-        # yr_hat = self.predict(xr)
-        # yi_hat = self.predict(xi)
-        # loss_real = nn.functional.mse_loss(yr_hat, yr)
-        # loss_imag = nn.functional.mse_loss(yi_hat, yi)
-        # loss_mag  = nn.functional.mse_loss(t.log(t.abs(yr_hat + 1j*yi_hat)), t.log(t.abs(yr + 1j*yi)))
-        # loss = loss_real + loss_imag + 2*loss_mag
         
         self.log("loss", {'train': loss })
         self.log("train_loss", loss )
@@ -241,22 +175,9 @@ class SpeechDAREUnet_v1(pl.LightningModule):
             t.log(t.abs(y_c))
             )
         phasedist = t.sum(t.abs(y_c)/t.sum(t.abs(y_c)) * t.abs(t.angle(y_c)-t.angle(y_hat_c)))
-        # loss = mse_abs + phasedist
 
         y_hat_wav = t.istft(y_hat_c,self.nfft,hop_length=self.nhop,win_length=self.nfft,window=self.win.to(self.device),length=z.shape[1])
         loss = - self.si_sdr(y_hat_wav, z) + mse_abs*10
-
-        # Try real then imag and loss=real+imag+abs 
-        # xr = x[:,[0],:,:].float()
-        # xi = x[:,[1],:,:].float()
-        # yr = y[:,[0],:,:].float()
-        # yi = y[:,[1],:,:].float()
-        # yr_hat = self.predict(xr)
-        # yi_hat = self.predict(xi)
-        # loss_real = nn.functional.mse_loss(yr_hat, yr)
-        # loss_imag = nn.functional.mse_loss(yi_hat, yi)
-        # loss_mag  = nn.functional.mse_loss(t.log(t.abs(yr_hat + 1j*yi_hat)), t.log(t.abs(yr + 1j*yi)))
-        # loss = loss_real + loss_imag + 2*loss_mag
         
         if (self.current_epoch % 1 == 0) and (batch_idx==0):
             import matplotlib.pyplot as plt
@@ -277,7 +198,6 @@ class SpeechDAREUnet_v1(pl.LightningModule):
             ax9.imshow(np.log(np.abs(c[0,0,:,:] + 1j*c[0,1,:,:])))
             plt.savefig("./images/2_"+str(self.current_epoch)+".png",dpi=600)
             plt.close()
-
 
         self.log("loss", {'val': loss })
         self.log("val_loss", loss )
@@ -301,22 +221,9 @@ class SpeechDAREUnet_v1(pl.LightningModule):
             t.log(t.abs(y_c))
             )
         phasedist = t.sum(t.abs(y_c)/t.sum(t.abs(y_c)) * t.abs(t.angle(y_c)-t.angle(y_hat_c)))
-        # loss = mse_abs + phasedist
 
         y_hat_wav = t.istft(y_hat_c,self.nfft,hop_length=self.nhop,win_length=self.nfft,window=self.win.to(self.device),length=z.shape[1])
         loss = - self.si_sdr(y_hat_wav, z) + mse_abs*10
-
-        # Try real then imag and loss=real+imag+abs 
-        # xr = x[:,[0],:,:].float()
-        # xi = x[:,[1],:,:].float()
-        # yr = y[:,[0],:,:].float()
-        # yi = y[:,[1],:,:].float()
-        # yr_hat = self.predict(xr)
-        # yi_hat = self.predict(xi)
-        # loss_real = nn.functional.mse_loss(yr_hat, yr)
-        # loss_imag = nn.functional.mse_loss(yi_hat, yi)
-        # loss_mag  = nn.functional.mse_loss(t.log(t.abs(yr_hat + 1j*yi_hat)), t.log(t.abs(yr + 1j*yi)))
-        # loss = loss_real + loss_imag + 2*loss_mag
         
         self.log("loss", {'test': loss })
         self.log("test_loss", loss )
@@ -339,7 +246,6 @@ class SpeechDAREUnet_v1(pl.LightningModule):
     def configure_optimizers(self):
         optimizer = optim.Adam(self.parameters(), lr=self.learning_rate)
         return optimizer
-
 
 
 class SpeechDAREUnet_v2(pl.LightningModule):
@@ -375,7 +281,7 @@ class SpeechDAREUnet_v2(pl.LightningModule):
         s = 2
         p_drop = 0.5
         leaky_slope = 0.01
-        # Small UNet model
+        
         self.conv1 = nn.Sequential(nn.Conv2d(  2,  64, k, stride=s, padding=k//2), nn.LeakyReLU(leaky_slope))
         self.conv2 = nn.Sequential(nn.Conv2d( 64, 128, k, stride=s, padding=k//2), nn.BatchNorm2d(128), nn.LeakyReLU(leaky_slope))
         self.conv3 = nn.Sequential(nn.Conv2d(128, 256, k, stride=s, padding=k//2), nn.BatchNorm2d(256), nn.LeakyReLU(leaky_slope))

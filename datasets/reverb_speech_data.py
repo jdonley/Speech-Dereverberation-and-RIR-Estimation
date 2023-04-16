@@ -40,7 +40,7 @@ class DareDataset(Dataset):
             self.idx_to_data = -np.ones((len(self.speech_dataset) * len(self.rir_dataset),),dtype=np.int32) 
 
     def __len__(self):
-        return self.dataset_len # len(self.speech_dataset) * len(self.rir_dataset)
+        return self.dataset_len
 
     def __getitem__(self, idx):
         if not self.data_in_ram or (self.data_in_ram and self.idx_to_data[idx] == -1):
@@ -93,12 +93,6 @@ class DareDataset(Dataset):
                 win_length=self.nfft,
                 window='hann'
                 )
-            
-            # import matplotlib.pyplot as plt
-            # plt.imshow(np.log(np.abs(reverb_speech_stft)), aspect='auto')
-            # plt.show()
-            # plt.close()
-
 
             if self.stft_format == 'magphase':
                 np.seterr(divide = 'ignore')
@@ -127,16 +121,6 @@ class DareDataset(Dataset):
                 win_length=self.nfft,
                 window='hann'
                 )
-            # import torch as t
-            # s = t.tensor(np.real(speech_stft[None,:,:])).float() + 1j*t.tensor(np.imag(speech_stft[None,:,:])).float()
-            # speech2 = np.squeeze(t.istft(s,self.nfft,hop_length=self.nhop,win_length=self.nfft,window=t.hann_window(self.nfft),length=speech_wav.shape[0]).numpy())
-            # # print(speech-speech2)
-            # import matplotlib.pyplot as plt
-            # plt.plot(speech, label = "speech")
-            # plt.plot(speech2, label = "speech2")
-            # plt.plot(speech-speech2, label = "speech-speech2")
-            # plt.show()
-            # plt.close()
 
             if self.stft_format_sp == 'magphase':
                 np.seterr(divide = 'ignore')
