@@ -22,7 +22,7 @@ class MitIrSurveyDataset(Dataset):
 
         self.split_train_val_test_p = np.array(np.int16(split_train_val_test_p))
         self.split_train_val_test = np.int16(np.round( np.array(self.split_train_val_test_p)/100 * self.max_data_len ))
-        self.split_edge = np.cumsum(np.concatenate(([0],self.split_train_val_test_p)), axis=0)
+        self.split_edge = np.cumsum(np.concatenate(([0],self.split_train_val_test)), axis=0)
         self.idx_rand = np.random.RandomState(seed=config['random_seed']).permutation(self.max_data_len)
 
         split = []
@@ -46,7 +46,7 @@ class MitIrSurveyDataset(Dataset):
         if samplerate != self.samplerate:
             raise Exception("The samplerate of the audio in the dataset is not 32kHz.")
         
-        return audio_data
+        return audio_data, filename
 
     def download_mit_ir_survey(self, local_path):
         url = "https://mcdermottlab.mit.edu/Reverb/IRMAudio/Audio.zip"

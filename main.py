@@ -6,11 +6,14 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.strategies.ddp import DDPStrategy
+from pytorch_lightning.strategies.dp import DataParallelStrategy
 from pytorch_lightning.profiler import AdvancedProfiler
 from utils.utils import getConfig
 from utils.progress_bar import getProgressBar
 import random
 import numpy as np
+import os
+os.environ['MASTER_ADDR'] = str(os.environ.get('HOST', '::1'))
 
 random.seed(   getConfig()['random_seed'])
 np.random.seed(getConfig()['random_seed'])
@@ -37,7 +40,7 @@ def main(args):
     lr_monitor = LearningRateMonitor(**cfg['LearningRateMonitor'])
 
     # Strategy
-    strategy = DDPStrategy(**cfg['DDPStrategy'])
+    strategy = DataParallelStrategy(**cfg['DataParallelStrategy'])
 
     # Profiler
     profiler = AdvancedProfiler(**cfg['AdvancedProfiler'])

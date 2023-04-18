@@ -13,9 +13,9 @@ def dummy_flow():
     cfg = getTestConfig()
     # ===========================================================
     # PyTorch Lightning Models
-    model = LitAutoEncoder()
     model = ErnstUnet()
     model = SpeechDAREUnet_v1()
+    model = SpeechDAREUnet_v2()
 
     # Data Module
     datamodule = DareDataModule(config=cfg)
